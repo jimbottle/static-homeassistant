@@ -1,0 +1,14 @@
+# roborev snapshots
+/.roborev/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
+
+# Local-only: tracker data, session state and the working plan stay on the
+# machine that runs the work and never reach the remote
+.beads/
+.claude/state/
+.claude/settings.local.json
+/static-radio-home-assistant-plan.md
