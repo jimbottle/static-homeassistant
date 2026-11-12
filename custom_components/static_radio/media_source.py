@@ -1,9 +1,13 @@
 """Static's stations in Home Assistant's media browser.
 
 Opening "Static Radio (unofficial)" in the media browser lists the stations in
-dial order, each with the show and episode that are on right now and the
-episode's cover art. There is nothing below a station: no episode list, since
+dial order, by name. There is nothing below a station: no episode list, since
 Static is live radio and offers no choosing, seeking or skipping.
+
+The entries deliberately do not say what is on. Static asks that wherever
+now-playing is shown, the episode link and the show's Support link are shown
+with it, and a media browser entry has a title and a picture but nowhere to
+put a link. What is on, with both links, is on the now-playing sensors.
 
 The list is for looking, for now. A station cannot be played from here until
 the station stream exists, so each entry is marked as not playable and
@@ -34,7 +38,7 @@ async def async_get_media_source(hass: HomeAssistant) -> StaticMediaSource:
 
 
 class StaticMediaSource(MediaSource):
-    """The stations, each with what is on now."""
+    """The stations, by name."""
 
     name = TITLE
 
@@ -79,18 +83,15 @@ class StaticMediaSource(MediaSource):
 
 def _station(coordinator: StaticCoordinator, station: Station) -> BrowseMediaSource | None:
     """One station's entry, or None while it must not be played (another day's schedule)."""
-    found = coordinator.live(station.station_id)
-    if found is None:
+    if coordinator.live(station.station_id) is None:
         return None
-    episode = found.episode
     return BrowseMediaSource(
         domain=DOMAIN,
         identifier=station.station_id,
         media_class=MediaClass.CHANNEL,
         media_content_type=MediaType.CHANNEL,
-        title=f"{station.display_name} · {episode.feed_title}: {episode.title}",
+        # The name only: see the top of this file for why not the show.
+        title=station.display_name,
         can_play=False,
         can_expand=False,
-        # Art that is not on the web is built into Static's own apps: no picture then.
-        thumbnail=episode.image_url if episode.image_url.startswith("https://") else None,
     )

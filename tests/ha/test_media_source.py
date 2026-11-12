@@ -1,4 +1,8 @@
-"""The media browser lists the stations and what is on, and plays nothing yet."""
+"""The media browser lists the stations by name, and plays nothing yet.
+
+It does not say what is on: an entry has nowhere to put the episode and
+Support links that Static asks to see beside now-playing.
+"""
 
 from __future__ import annotations
 
@@ -46,7 +50,7 @@ async def _set_up(
     await hass.async_block_till_done(wait_background_tasks=True)
 
 
-async def test_the_browser_lists_every_station_with_what_is_on(
+async def test_the_browser_lists_every_station_by_name_and_not_what_is_on(
     hass: HomeAssistant,
     entry: MockConfigEntry,
     aioclient_mock: AiohttpClientMocker,
@@ -66,15 +70,12 @@ async def test_the_browser_lists_every_station_with_what_is_on(
         found = live(schedule, station, now_ms)
         assert found is not None
         assert child.media_content_id == f"{ROOT}/{station.station_id}"
-        assert child.title.startswith(f"{station.display_name} · {found.episode.feed_title}")
-        assert found.episode.title in child.title
+        assert child.title == station.display_name
+        # Now-playing without its links is not shown: no show, no episode, no art.
+        assert child.thumbnail is None
         # Live radio: nothing to open, and nothing to play until the stream exists.
         assert child.can_expand is False
         assert child.can_play is False
-        if found.episode.image_url.startswith("https://"):
-            assert child.thumbnail == found.episode.image_url
-        else:
-            assert child.thumbnail is None
 
 
 async def test_no_audio_address_is_handed_out(
