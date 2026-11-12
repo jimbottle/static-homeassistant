@@ -14,9 +14,12 @@
 #   Static is live: a listener's usual stop phrase stops it, and playing it
 #   again tunes to the live moment.
 #
-# The station list follows Static's dial as it stood on 2026-11-11, with the
-# spellings a speech recognizer is likely to write. A test compares it with
-# the saved schedule, so a new station on the dial is noticed.
+# The station list is Static's dial as it stood on 2026-11-12, and a station
+# is asked for by Static's own name and no other: no nicknames, no synonyms.
+# The only extra entries are other spellings of the same spoken name, because
+# a speech recognizer writes what it hears ("Sheila Bee" for SHEILA B). Every
+# entry gives back the name exactly as Static writes it. A test compares the
+# list with the saved schedule, so a new station on the dial is noticed.
 language: en
 intents:
   StaticPlay:
@@ -85,17 +88,17 @@ lists:
         out: "Nature"
       - in: "work"
         out: "Work"
-      - in: "(learn|learning)"
+      - in: "learn"
         out: "Learn"
       - in: "news"
         out: "News"
       - in: "weird"
         out: "Weird"
-      - in: "(unite|united)"
+      - in: "unite"
         out: "Unite"
       - in: "make"
         out: "Make"
-      - in: "(sheila b|sheila bee|sheila be|shiela b|sheila)"
+      - in: "(sheila b|sheila bee|sheila be|shiela b)"
         out: "SHEILA B"
       - in: "sleep"
         out: "Sleep"

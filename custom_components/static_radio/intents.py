@@ -35,6 +35,7 @@ from .const import DOMAIN
 from .coordinator import StaticCoordinator
 from .feed import support_links
 from .schedule import Episode, Station
+from .tuner import find_station, unknown_station_reply
 
 INTENT_WHATS_ON = "StaticWhatsOn"
 INTENT_SUPPORT_LINK = "StaticSupportLink"
@@ -69,16 +70,6 @@ def _web(url: str) -> str | None:
 def _plain(text: str) -> str:
     """A title with the punctuation at its end removed, so the reply can end in a period."""
     return text.strip().rstrip(".?!:;, ")
-
-
-def find_station(stations: tuple[Station, ...], said: str) -> Station | None:
-    """The station a listener or an assistant named: by name, dial tag or id."""
-    wanted = said.strip().casefold()
-    for station in stations:
-        names = (station.display_name, station.u_tag, station.station_id)
-        if wanted in (name.casefold() for name in names):
-            return station
-    return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -128,7 +119,8 @@ class _StaticHandler(intent.IntentHandler):
             return "Say which Static station, for example Static News."
         station = find_station(coordinator.data.stations, str(said))
         if station is None:
-            return f"Static has no station called {_plain(str(said))}."
+            # Only Static's own names are stations; say what they are.
+            return unknown_station_reply(coordinator.data.stations)
         found = coordinator.live(station.station_id)
         if found is None:
             return "Static's schedule is not available right now."

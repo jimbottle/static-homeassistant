@@ -237,7 +237,8 @@ async def test_a_missing_or_unknown_station_and_another_days_schedule(
             "Say which Static station, for example Static News."
         )
         assert _said(await _ask(hass, intent_type, "Jazz?")) == (
-            "Static has no station called Jazz."
+            "Static's stations are Nature, Work, Learn, News, Weird, Unite, Make, "
+            "SHEILA B and Sleep."
         )
 
     freezer.move_to(START + timedelta(hours=48))  # more than 30 h past its epoch

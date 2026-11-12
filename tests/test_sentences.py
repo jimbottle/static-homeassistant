@@ -70,8 +70,7 @@ def _match(pack: hassil.Intents, said: str) -> tuple[str, dict[str, Any]] | None
         ("change to make on static radio", "StaticTune", {"station": "Make"}),
         ("Play Static Sheila B.", "StaticTune", {"station": "SHEILA B"}),
         ("play static sheila bee", "StaticTune", {"station": "SHEILA B"}),
-        ("tune static to sheila", "StaticTune", {"station": "SHEILA B"}),
-        ("play static learning", "StaticTune", {"station": "Learn"}),
+        ("tune static to shiela b", "StaticTune", {"station": "SHEILA B"}),
         ("Next Static station.", "StaticNext", {}),
         ("go to the next static station", "StaticNext", {}),
         ("Previous Static station.", "StaticPrevious", {}),
@@ -156,8 +155,13 @@ def test_what_a_listener_says_reaches_its_intent(
         "there's static on the line",
         "play statics",
         "play ecstatic",
-        # Stations that are not on the dial are not guessed at.
+        # Stations that are not on the dial are not guessed at, and a station
+        # answers only to Static's own name for it.
         "play static jazz",
+        "play static learning",
+        "play static united",
+        "tune static to sheila",
+        "play static the news",
         "tune static to 91.9",
     ],
 )
