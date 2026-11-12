@@ -18,6 +18,8 @@ dev = [
   "mypy>=1.10",
   "pytest>=8.0",
   "pre-commit>=4.0",
+  # Validates the saved schedule fixtures against Static's published schema.
+  "jsonschema>=4.20",
 ]
 
 [tool.uv]
@@ -43,7 +45,10 @@ python_version = "3.14"
 strict = true
 ignore_missing_imports = true
 exclude = [".venv", "spikes"]
+# The timeline, seek and API modules import nothing from Home Assistant and
+# are tested as plain modules, without loading the integration package.
+mypy_path = "custom_components/static_radio"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = ["."]
+pythonpath = [".", "custom_components/static_radio"]
