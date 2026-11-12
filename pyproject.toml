@@ -45,10 +45,11 @@ python_version = "3.14"
 strict = true
 ignore_missing_imports = true
 exclude = [".venv", "spikes"]
-# The timeline, seek and API modules import nothing from Home Assistant and
-# are tested as plain modules, without loading the integration package.
-mypy_path = "custom_components/static_radio"
+# Modules are checked under their real package path,
+# custom_components.static_radio.<name>, so no file is ever seen under two names.
+explicit_package_bases = true
+mypy_path = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-pythonpath = [".", "custom_components/static_radio"]
+pythonpath = ["."]

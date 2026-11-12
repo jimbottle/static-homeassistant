@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,6 +31,8 @@ BULLETIN_CAP_MS = 30_000  # bulletins never play past 30 s, even if the file run
 # A schedule whose epoch is further than this from now belongs to another
 # broadcast day and must not be played (Schedule.pm rejects it the same way).
 WRONG_DAY_MS = 30 * 3600 * 1000
+
+_UNIX_EPOCH = datetime(1970, 1, 1, tzinfo=UTC)
 
 # Stations without a sort_index go to the end of the dial, as in Schedule.pm.
 _UNSORTED = 999
@@ -147,7 +149,9 @@ def parse_epoch_ms(value: str) -> int:
         raise ScheduleError(f"daily_epoch_utc is not a timestamp: {value!r}") from err
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
-    return int(parsed.timestamp() * 1000)
+    # Whole-number arithmetic: going through a float can land 1 ms short when
+    # the value carries a fraction of a second.
+    return (parsed - _UNIX_EPOCH) // timedelta(milliseconds=1)
 
 
 def _episode(raw: dict[str, Any]) -> Episode:

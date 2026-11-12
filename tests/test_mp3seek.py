@@ -12,7 +12,8 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from mp3seek import (
+
+from custom_components.static_radio.mp3seek import (
     FRAME_BYTES,
     HEAD_BYTES,
     MAX_TAG_BYTES,

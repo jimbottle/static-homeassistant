@@ -10,7 +10,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from api import (
+from custom_components.static_radio.api import (
     COUNTS_MIN_INTERVAL_S,
     COUNTS_URL,
     SCHEDULE_MIN_INTERVAL_S,

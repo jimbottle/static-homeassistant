@@ -15,7 +15,8 @@ from typing import Any
 
 import jsonschema
 import pytest
-from schedule import (
+
+from custom_components.static_radio.schedule import (
     BULLETIN_CAP_MS,
     GAP_MS,
     WRONG_DAY_MS,
@@ -183,6 +184,7 @@ def test_the_epoch_is_read_with_its_offset() -> None:
     assert parse_epoch_ms("2026-11-12T06:00:00+00:00") == 1_794_463_200_000
     assert parse_epoch_ms("2026-11-12T00:00:00-06:00") == 1_794_463_200_000
     assert parse_epoch_ms("2026-11-12T06:00:00") == 1_794_463_200_000
+    assert parse_epoch_ms("2026-11-12T06:00:00.123+00:00") == 1_794_463_200_123
     with pytest.raises(ScheduleError):
         parse_epoch_ms("tomorrow")
 
