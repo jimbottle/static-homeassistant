@@ -1,0 +1,29 @@
+# A dashboard card that shows what is on every Static Radio station.
+#
+# Add a "Manual" card to a dashboard and paste this in. It needs nothing but
+# this integration: it finds the now-playing sensors by itself, so it keeps
+# working when Static adds or removes a station.
+#
+# For each station it shows the show and the episode, a link to the episode's
+# page and, beside it, a link labeled "Support" to the show's own support page
+# when the show has one. Static asks every player to show those two links
+# together, and never to show a Support link on a community bulletin; the
+# sensor leaves the link out for a bulletin, so the card does too. Please keep
+# the Support link and the credit line if you restyle the card.
+type: markdown
+title: Static Radio
+content: |-
+  {%- for id in integration_entities('static_radio') | sort
+      if state_attr(id, 'station_id') is not none and has_value(id) %}
+  {%- set name = state_attr(id, 'friendly_name') | replace('Static Radio (unofficial) ', '') %}
+  {%- set episode_url = state_attr(id, 'episode_url') %}
+  {%- set support_url = state_attr(id, 'support_url') %}
+  **{{ name }}** · {{ states(id) }}<br>
+  {{ state_attr(id, 'episode') }}<br>
+  {% if episode_url %}[Episode]({{ episode_url }}){% endif %}
+  {%- if episode_url and support_url %} · {% endif %}
+  {%- if support_url %}[Support]({{ support_url }}){% endif %}
+
+  {% endfor %}
+  Stations by [Static Radio](https://staticradio.app). This card is from an
+  unofficial integration, not made or supported by Static.
