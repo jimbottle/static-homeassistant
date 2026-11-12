@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://staticradio.app/schemas/schedule-wear.v8.json",
+  "title": "Static Radio schedule (schedule-wear.json, schema_version 8)",
+  "description": "The public schedule at https://data.staticradio.app/schedule-wear.json. Every station is a loop of episodes that started at daily_epoch_utc, with 1.5 s of silence after each episode. How to work out what's live: https://staticradio.app/developers#whats-live. New fields can appear at any time without a version change, so ignore any you don't know. We'll give notice before schema_version changes.",
+  "type": "object",
+  "required": ["schema_version", "daily_epoch_utc", "generated_at_utc", "categories"],
+  "properties": {
+    "schema_version": {
+      "description": "The format version. 8 for this schema.",
+      "const": 8
+    },
+    "daily_epoch_utc": {
+      "description": "When the loops started: midnight US Central at the start of the broadcast day this file was built for. A new file goes on air as soon as it's published, usually around 7 a.m. Central the day before, so this is often in the future. Wrap with a modulo that never goes negative.",
+      "type": "string",
+      "format": "date-time",
+      "examples": ["2026-11-12T06:00:00+00:00"]
+    },
+    "generated_at_utc": {
+      "description": "When this file was built.",
+      "type": "string",
+      "format": "date-time",
+      "examples": ["2026-11-11T13:37:12.499349+00:00"]
+    },
+    "categories": {
+      "description": "The stations, keyed by station id (for example news_01). Only stations on the air are listed. Order them by sort_index.",
+      "type": "object",
+      "propertyNames": { "pattern": "^[a-z0-9_]+$" },
+      "minProperties": 1,
+      "additionalProperties": { "$ref": "#/$defs/station" }
+    }
+  },
+  "$defs": {
+    "hexColor": {
+      "type": "string",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+    "station": {
+      "type": "object",
+      "required": ["id", "display_name", "u_tag", "is_active", "sort_index", "loop_duration_seconds", "episodes"],
+      "properties": {
+        "id": {
+          "description": "The station id, the same as its key in categories.",
+          "type": "string",
+          "examples": ["news_01"]
+        },
+        "display_name": {
+          "description": "The station's name.",
+          "type": "string",
+          "examples": ["News", "SHEILA B"]
+        },
+        "u_tag": {
+          "description": "The station's name as it appears on the dial, in capitals.",
+          "type": "string",
+          "examples": ["NEWS"]
+        },
+        "is_active": {
+          "description": "Always true in this file; inactive stations are left out.",
+          "type": "boolean"
+        },
+        "sort_index": {
+          "description": "Position on the dial, from 0.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "loop_duration_seconds": {
+          "description": "Length of the station's loop in seconds, NOT counting the 1.5 s gaps. Equal to the sum of the episodes' durationInSeconds.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "palette": {
+          "description": "The station's colors: bg (background) and two accents a and b.",
+          "type": "object",
+          "properties": {
+            "bg": { "$ref": "#/$defs/hexColor" },
+            "a": { "$ref": "#/$defs/hexColor" },
+            "b": { "$ref": "#/$defs/hexColor" }
+          }
+        },
+        "episodes": {
+          "description": "The loop, in airing order.",
+          "type": "array",
+          "items": { "$ref": "#/$defs/episode" }
+        }
+      }
+    },
+    "episode": {
+      "type": "object",
+      "required": [
+        "episodeId", "audioUrl", "startOffsetSeconds", "durationInSeconds", "imageUrl",
+        "title", "feedTitle", "episodeUrl", "feedUrl", "gainDb", "isBulletin"
+      ],
+      "properties": {
+        "episodeId": {
+          "description": "A stable id for the episode. Bulletins are bulletin-<id> and can appear several times in one loop.",
+          "type": "string",
+          "minLength": 1
+        },
+        "audioUrl": {
+          "description": "The audio, on the show's own host (bulletins are on data.staticradio.app or bulletin.staticradio.app). Stream it from here; follow redirects; never cache, re-host or proxy it. A few are plain http.",
+          "type": "string",
+          "pattern": "^https?://"
+        },
+        "startOffsetSeconds": {
+          "description": "The sum of the earlier episodes' durations, WITHOUT the 1.5 s gaps. Don't use it for timing; walk the episodes instead.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "durationInSeconds": {
+          "description": "How long the episode holds the air, in seconds. Its slot is this plus 1.5 s. Episodes with 0 are skipped.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "imageUrl": {
+          "description": "Cover art, usually https://data.staticradio.app/art/<hash>.webp. A few are a relative path to art bundled in our apps (SHEILA B), which you can't fetch; use your own fallback for anything that isn't an absolute URL.",
+          "type": "string"
+        },
+        "title": {
+          "description": "The episode's title. \"Community Bulletin\" for bulletins.",
+          "type": "string"
+        },
+        "feedTitle": {
+          "description": "The show's name. \"Static Radio Bulletin Board\" for bulletins.",
+          "type": "string"
+        },
+        "episodeUrl": {
+          "description": "The episode's web page, or the bulletin's link. Can be empty.",
+          "type": "string"
+        },
+        "feedUrl": {
+          "description": "The show's RSS feed. Empty for bulletins.",
+          "type": "string"
+        },
+        "gainDb": {
+          "description": "Loudness correction in dB (EBU R128), so stations sit at a similar level. Optional to apply.",
+          "type": "number"
+        },
+        "isBulletin": {
+          "description": "True for a community bulletin. Bulletins play for at most 30 s.",
+          "type": "boolean"
+        },
+        "placementId": {
+          "description": "Bulletins only: an id for the break this bulletin fills.",
+          "type": "string",
+          "pattern": "^bulletin-.+-block-gap-[0-9]+$",
+          "examples": ["bulletin-sample-barf-garden-block-gap-0"]
+        },
+        "supportUrl": {
+          "description": "Optional. The show's own support page, from the podcast:funding tag in its RSS feed. Show it as a \"Support\" link while the episode plays. Left out when the show has none, and on bulletins. Added 2026-11-11. Older files have no supportUrl on any episode; for those, read podcast:funding from feedUrl.",
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://",
+          "examples": ["https://www.patreon.com/laborjawn/"]
+        },
+        "image_analysis": {
+          "description": "Colors picked from the cover art. On one episode per station only.",
+          "type": "object",
+          "properties": {
+            "vibrant_color": { "$ref": "#/$defs/hexColor" },
+            "darkest_color": { "$ref": "#/$defs/hexColor" },
+            "lightest_color": { "$ref": "#/$defs/hexColor" }
+          }
+        }
+      }
+    }
+  }
+}

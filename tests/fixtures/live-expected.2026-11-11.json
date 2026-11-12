@@ -1,0 +1,1465 @@
+[
+ {
+  "station": "nature_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/unwnsmh8rgdx9s9d/Field_of_Sunflowers_Light_1_hour_avec_gusts_mp3an0sd.mp3",
+   "offsetS": 1984,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "b1714f59eed25fad37eb21fff7376d292b3e14f0",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/unwnsmh8rgdx9s9d/Field_of_Sunflowers_Light_1_hour_avec_gusts_mp3an0sd.mp3",
+   "offsetMs": 1984322,
+   "inGap": false,
+   "audioMs": 3641000,
+   "startedAtMs": 1794362470000,
+   "nextAtMs": 1794366112500
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794379060700,
+  "perl": {
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetS": 2260,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "0791814d1ea8d0a8274461f134e2daf6b4c76eae",
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetMs": 2260700,
+   "inGap": true,
+   "audioMs": 2260000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794379061500
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794435420499,
+  "perl": {
+   "audioUrl": "https://feeds.soundcloud.com/stream/2094527613-marc-d-663188540-distant-thunder-and-birds-1.mp3",
+   "offsetS": 874,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "f5348592d4073112c948d7d8f76579b6e28a61d4",
+   "audioUrl": "https://feeds.soundcloud.com/stream/2094527613-marc-d-663188540-distant-thunder-and-birds-1.mp3",
+   "offsetMs": 874499,
+   "inGap": true,
+   "audioMs": 873000,
+   "startedAtMs": 1794434546000,
+   "nextAtMs": 1794435420500
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "at the loop wrap",
+  "t": 1794435420500,
+  "perl": {
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "0791814d1ea8d0a8274461f134e2daf6b4c76eae",
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 2260000,
+   "startedAtMs": 1794435420500,
+   "nextAtMs": 1794437682000
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794435420501,
+  "perl": {
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "0791814d1ea8d0a8274461f134e2daf6b4c76eae",
+   "audioUrl": "https://pinecast.com/listen/9ecc03bc-ebb1-4088-a34e-3eba44ee5daa.mp3?source=rss&ext=asset.mp3",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 2260000,
+   "startedAtMs": 1794435420500,
+   "nextAtMs": 1794437682000
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794557661500,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/7f22824/podcast/play/101653714/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2025-3-23%2F00efe3a8-7473-6b81-46e4-68eca638c5f4.mp3",
+   "offsetS": 2707,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "441c7578b40754095b54d417cb6e24ac82a38bfc",
+   "audioUrl": "https://anchor.fm/s/7f22824/podcast/play/101653714/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2025-3-23%2F00efe3a8-7473-6b81-46e4-68eca638c5f4.mp3",
+   "offsetMs": 2707000,
+   "inGap": false,
+   "audioMs": 12393000,
+   "startedAtMs": 1794554954500,
+   "nextAtMs": 1794567349000
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/11709e10c/podcast/play/125435721/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-8-9%2F431491187-44100-2-40f7cfdba386100c.mp3",
+   "offsetS": 10971,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "14b6540f5e673c0a2898b0e5334663b7961c210e",
+   "audioUrl": "https://anchor.fm/s/11709e10c/podcast/play/125435721/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-8-9%2F431491187-44100-2-40f7cfdba386100c.mp3",
+   "offsetMs": 10971000,
+   "inGap": false,
+   "audioMs": 14400000,
+   "startedAtMs": 1794405829000,
+   "nextAtMs": 1794420230500
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794379092000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794379061500,
+   "nextAtMs": 1794379093000
+  }
+ },
+ {
+  "station": "nature_01",
+  "case": "29 s into a bulletin",
+  "t": 1794379090500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794379061500,
+   "nextAtMs": 1794379093000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://feeds.soundcloud.com/stream/2117890905-madjam-madjam-live-xo-thebarn-doha.mp3",
+   "offsetS": 2259,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "64823a4907eebec08feb92135b0c17fb5cb9e6ef",
+   "audioUrl": "https://feeds.soundcloud.com/stream/2117890905-madjam-madjam-live-xo-thebarn-doha.mp3",
+   "offsetMs": 2259322,
+   "inGap": false,
+   "audioMs": 7300000,
+   "startedAtMs": 1794362195000,
+   "nextAtMs": 1794369496500
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794380426700,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetS": 3626,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "dc22108f670919305034e9a77b4ea45eb9d09a0d",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetMs": 3626700,
+   "inGap": true,
+   "audioMs": 3626000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794380427500
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794442448499,
+  "perl": {
+   "audioUrl": "https://feeds.soundcloud.com/stream/2272985366-savemyreality-smr-2-her-doubts-2.mp3",
+   "offsetS": 157,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "c0537de3b13d7a221769b91b55f69d87e212cf89",
+   "audioUrl": "https://feeds.soundcloud.com/stream/2272985366-savemyreality-smr-2-her-doubts-2.mp3",
+   "offsetMs": 157499,
+   "inGap": true,
+   "audioMs": 156000,
+   "startedAtMs": 1794442291000,
+   "nextAtMs": 1794442448500
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "at the loop wrap",
+  "t": 1794442448500,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "dc22108f670919305034e9a77b4ea45eb9d09a0d",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 3626000,
+   "startedAtMs": 1794442448500,
+   "nextAtMs": 1794446076000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794442448501,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "dc22108f670919305034e9a77b4ea45eb9d09a0d",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/icdoll/spacemusic16_01_128.mp3",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 3626000,
+   "startedAtMs": 1794442448500,
+   "nextAtMs": 1794446076000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794578745500,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/xjdp7mu7nfuxbais/spacemusic17_08_free.mp3",
+   "offsetS": 1341,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "665dc2ab927b0e63b5d04450b45fd7511fa2919a",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/xjdp7mu7nfuxbais/spacemusic17_08_free.mp3",
+   "offsetMs": 1341000,
+   "inGap": false,
+   "audioMs": 3840000,
+   "startedAtMs": 1794577404500,
+   "nextAtMs": 1794581246000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/blugazer/Blugazer_Presents_-_Illusionary_Images_170_Jan_2026_-_Best_of_2025_-_Colors_Dissipated.mp3?dest-id=133342",
+   "offsetS": 2440,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a718573ff02ff3e0095d02b79d0803a7a58443fa",
+   "audioUrl": "https://traffic.libsyn.com/secure/blugazer/Blugazer_Presents_-_Illusionary_Images_170_Jan_2026_-_Best_of_2025_-_Colors_Dissipated.mp3?dest-id=133342",
+   "offsetMs": 2440500,
+   "inGap": false,
+   "audioMs": 7177000,
+   "startedAtMs": 1794414359500,
+   "nextAtMs": 1794421538000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794380458000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794380427500,
+   "nextAtMs": 1794380459000
+  }
+ },
+ {
+  "station": "work_01",
+  "case": "29 s into a bulletin",
+  "t": 1794380456500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794380427500,
+   "nextAtMs": 1794380459000
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://www.buzzsprout.com/2640721/episodes/19772837-commissioning-in-care-support-has-become-too-transactional-portia-kumalo-ep2.mp3",
+   "offsetS": 587,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "92cdc40194589e5a9345b34047e4ac1f631f9a4e",
+   "audioUrl": "https://www.buzzsprout.com/2640721/episodes/19772837-commissioning-in-care-support-has-become-too-transactional-portia-kumalo-ep2.mp3",
+   "offsetMs": 587322,
+   "inGap": false,
+   "audioMs": 4456000,
+   "startedAtMs": 1794363867000,
+   "nextAtMs": 1794368324500
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794380611700,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetS": 3811,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "519c9af048facf08e8a915234755d11dce419058",
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetMs": 3811700,
+   "inGap": true,
+   "audioMs": 3811000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794380612500
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794448862499,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/folklore-bulletin-30s.mp3",
+   "offsetS": 31,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-fabulous-folklore",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/folklore-bulletin-30s.mp3",
+   "offsetMs": 31499,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794448831000,
+   "nextAtMs": 1794448862500
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "at the loop wrap",
+  "t": 1794448862500,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "519c9af048facf08e8a915234755d11dce419058",
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 3811000,
+   "startedAtMs": 1794448862500,
+   "nextAtMs": 1794452675000
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794448862501,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "519c9af048facf08e8a915234755d11dce419058",
+   "audioUrl": "https://anchor.fm/s/ff119478/podcast/play/128414067/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-9-30%2F5ff91782-f302-7ade-4428-49eabee2c8e1.mp3",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 3811000,
+   "startedAtMs": 1794448862500,
+   "nextAtMs": 1794452675000
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794597987500,
+  "perl": {
+   "audioUrl": "https://mcdn.podbean.com/mf/web/myw5zpgwea54crqz/Dr_Miranda_Interviewbmum9.mp3",
+   "offsetS": 1156,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "df5c5e75b996fae83809f9b14e60893e8ccbdf55",
+   "audioUrl": "https://mcdn.podbean.com/mf/web/myw5zpgwea54crqz/Dr_Miranda_Interviewbmum9.mp3",
+   "offsetMs": 1156000,
+   "inGap": false,
+   "audioMs": 2290000,
+   "startedAtMs": 1794596831500,
+   "nextAtMs": 1794599123000
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/api.spreaker.com/download/episode/71705522/pp249_looksmaxxing.mp3",
+   "offsetS": 2989,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "97cc283d726b95447cd8aa27811538075f453c6c",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/api.spreaker.com/download/episode/71705522/pp249_looksmaxxing.mp3",
+   "offsetMs": 2989000,
+   "inGap": false,
+   "audioMs": 4880000,
+   "startedAtMs": 1794413811000,
+   "nextAtMs": 1794418692500
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794380643000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794380612500,
+   "nextAtMs": 1794380644000
+  }
+ },
+ {
+  "station": "learn_01",
+  "case": "29 s into a bulletin",
+  "t": 1794380641500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794380612500,
+   "nextAtMs": 1794380644000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/traffic.libsyn.com/secure/aboutspacetoday/SR_-_Time_Slips.mp3?dest-id=1601693",
+   "offsetS": 712,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "ccc27a2a13cf1cd98569e277370ab3c2077fb991",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/traffic.libsyn.com/secure/aboutspacetoday/SR_-_Time_Slips.mp3?dest-id=1601693",
+   "offsetMs": 712822,
+   "inGap": false,
+   "audioMs": 812000,
+   "startedAtMs": 1794363741500,
+   "nextAtMs": 1794364555000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794378454700,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetS": 1654,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "c54e5c10e519e26b4aed216c9ecf77e148e080c4",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetMs": 1654700,
+   "inGap": true,
+   "audioMs": 1654000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794378455500
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794431970499,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/ez-pz-30s.mp3",
+   "offsetS": 31,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-ez-pz",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/ez-pz-30s.mp3",
+   "offsetMs": 31499,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794431939000,
+   "nextAtMs": 1794431970500
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "at the loop wrap",
+  "t": 1794431970500,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "c54e5c10e519e26b4aed216c9ecf77e148e080c4",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 1654000,
+   "startedAtMs": 1794431970500,
+   "nextAtMs": 1794433626000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794431970501,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "c54e5c10e519e26b4aed216c9ecf77e148e080c4",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/dovetail.prxu.org/16065/322558fc-c3a7-4603-9a2c-5b51ea999443/SR_Zynex_1.mp3",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 1654000,
+   "startedAtMs": 1794431970500,
+   "nextAtMs": 1794433626000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794547311500,
+  "perl": {
+   "audioUrl": "https://kwmu-adswizz.streamguys1.com/stl_on_the_air/20261102175022_925110-110226aweb_Restaurants.mp3?awCollectionId=stlpr-stlouisontheair&awGenre=News&awEpisodeId=c96e8310-d70f-11f1-abba-8be36c67ed08",
+   "offsetS": 460,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "afec12d83871841e96e6659ababce2c931e5aae2",
+   "audioUrl": "https://kwmu-adswizz.streamguys1.com/stl_on_the_air/20261102175022_925110-110226aweb_Restaurants.mp3?awCollectionId=stlpr-stlouisontheair&awGenre=News&awEpisodeId=c96e8310-d70f-11f1-abba-8be36c67ed08",
+   "offsetMs": 460000,
+   "inGap": false,
+   "audioMs": 1636000,
+   "startedAtMs": 1794546851500,
+   "nextAtMs": 1794548489000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://sphinx.acast.com/p/acast/s/ft-politics/e/6aecceb23be80be7f3bfcf22/media.mp3",
+   "offsetS": 281,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "aa91077fd9121d82fb75198d62d460ad7be40cc4",
+   "audioUrl": "https://sphinx.acast.com/p/acast/s/ft-politics/e/6aecceb23be80be7f3bfcf22/media.mp3",
+   "offsetMs": 281000,
+   "inGap": false,
+   "audioMs": 2360000,
+   "startedAtMs": 1794416519000,
+   "nextAtMs": 1794418880500
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794378486000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794378455500,
+   "nextAtMs": 1794378487000
+  }
+ },
+ {
+  "station": "news_01",
+  "case": "29 s into a bulletin",
+  "t": 1794378484500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794378455500,
+   "nextAtMs": 1794378487000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/5e36e4b8/podcast/play/123184966/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-6-22%2F428433470-44100-2-e8333103cefa8.mp3",
+   "offsetS": 1585,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "6b22045eef22150ae4172a2f96c731f0cc2fdac4",
+   "audioUrl": "https://anchor.fm/s/5e36e4b8/podcast/play/123184966/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-6-22%2F428433470-44100-2-e8333103cefa8.mp3",
+   "offsetMs": 1585322,
+   "inGap": false,
+   "audioMs": 4230000,
+   "startedAtMs": 1794362869000,
+   "nextAtMs": 1794367100500
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794381025700,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetS": 4225,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "729d746ab1cf984e2ef8a129f8346c873ab41379",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetMs": 4225700,
+   "inGap": true,
+   "audioMs": 4225000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794381026500
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794438364499,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/folklore-bulletin-30s.mp3",
+   "offsetS": 31,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-fabulous-folklore",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/folklore-bulletin-30s.mp3",
+   "offsetMs": 31499,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794438333000,
+   "nextAtMs": 1794438364500
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "at the loop wrap",
+  "t": 1794438364500,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "729d746ab1cf984e2ef8a129f8346c873ab41379",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 4225000,
+   "startedAtMs": 1794438364500,
+   "nextAtMs": 1794442591000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794438364501,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "729d746ab1cf984e2ef8a129f8346c873ab41379",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/cdn.simplecast.com/media/audio/transcoded/7ac13908-1a10-445c-b578-b937b9a6318c/33775205-57c8-4bb0-9521-9e2ecadb5937/episodes/audio/group/e3b8e77c-8c29-4aab-b667-271cc6007a41/group-item/696603dc-4557-43c9-95ca-8cf24c4e8cf0/128_default_tc.mp3?aid=rss_feed&feed=Sruwun5J",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 4225000,
+   "startedAtMs": 1794438364500,
+   "nextAtMs": 1794442591000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794566493500,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/pscrb.fm/rss/p/api.spreaker.com/download/episode/76161864/osapc_palm_beach_plane_v2_final_supporter.mp3",
+   "offsetS": 742,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "6508e3b1bfcd162a5e67f5b5cd7b82d9aed1618e",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/pscrb.fm/rss/p/api.spreaker.com/download/episode/76161864/osapc_palm_beach_plane_v2_final_supporter.mp3",
+   "offsetMs": 742000,
+   "inGap": false,
+   "audioMs": 1832000,
+   "startedAtMs": 1794565751500,
+   "nextAtMs": 1794567585000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/traffic.libsyn.com/secure/werewolfradar/The_Fabulous_Barton_Mansion_Ghost_7132026.mp3?dest-id=140459",
+   "offsetS": 749,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "e195d6e939be9dd1e69299e9fde78bbda0ecca15",
+   "audioUrl": "https://dts.podtrac.com/redirect.mp3/traffic.libsyn.com/secure/werewolfradar/The_Fabulous_Barton_Mansion_Ghost_7132026.mp3?dest-id=140459",
+   "offsetMs": 749500,
+   "inGap": false,
+   "audioMs": 3761000,
+   "startedAtMs": 1794416050500,
+   "nextAtMs": 1794419813000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794381057000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794381026500,
+   "nextAtMs": 1794381058000
+  }
+ },
+ {
+  "station": "weird_01",
+  "case": "29 s into a bulletin",
+  "t": 1794381055500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794381026500,
+   "nextAtMs": 1794381058000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/ed1a46fc/podcast/play/124758366/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-7-26%2F430573512-44100-2-b8bc21f7cf019.m4a",
+   "offsetS": 588,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "e0a4f0c79ae0c51b20e5e47d76a010902aa93203",
+   "audioUrl": "https://anchor.fm/s/ed1a46fc/podcast/play/124758366/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-7-26%2F430573512-44100-2-b8bc21f7cf019.m4a",
+   "offsetMs": 588322,
+   "inGap": false,
+   "audioMs": 2750000,
+   "startedAtMs": 1794363866000,
+   "nextAtMs": 1794366617500
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794381090700,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetS": 4290,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "5ee6251ab1ec5f9693067bc6abdfd3285c8669c7",
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetMs": 4290700,
+   "inGap": true,
+   "audioMs": 4290000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794381091500
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794447455499,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/ez-pz-30s.mp3",
+   "offsetS": 31,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-ez-pz",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/ez-pz-30s.mp3",
+   "offsetMs": 31499,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794447424000,
+   "nextAtMs": 1794447455500
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "at the loop wrap",
+  "t": 1794447455500,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "5ee6251ab1ec5f9693067bc6abdfd3285c8669c7",
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 4290000,
+   "startedAtMs": 1794447455500,
+   "nextAtMs": 1794451747000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794447455501,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "5ee6251ab1ec5f9693067bc6abdfd3285c8669c7",
+   "audioUrl": "https://anchor.fm/s/97f14cfc/podcast/play/128593317/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-10-2%2F435635251-44100-2-54f533b19d71c.m4a",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 4290000,
+   "startedAtMs": 1794447455500,
+   "nextAtMs": 1794451747000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794593766500,
+  "perl": {
+   "audioUrl": "https://anchor.fm/s/10c504738/podcast/play/119543168/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-4-5%2F423550789-44100-2-9f739f894f1ed.mp3",
+   "offsetS": 677,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "ba533b8286f612c5d28183d131eb75e7e186725f",
+   "audioUrl": "https://anchor.fm/s/10c504738/podcast/play/119543168/https%3A%2F%2Fd3ctxlq1ktw2nl.cloudfront.net%2Fstaging%2F2026-4-5%2F423550789-44100-2-9f739f894f1ed.mp3",
+   "offsetMs": 677000,
+   "inGap": false,
+   "audioMs": 1932000,
+   "startedAtMs": 1794593089500,
+   "nextAtMs": 1794595023000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://www.buzzsprout.com/2232600/episodes/19709190-the-rise-of-the-democratic-socialists-who-are-they-what-do-they-stand-for.mp3",
+   "offsetS": 609,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "d8df5ef279f16e8bda08272caf3cc64c7209931a",
+   "audioUrl": "https://www.buzzsprout.com/2232600/episodes/19709190-the-rise-of-the-democratic-socialists-who-are-they-what-do-they-stand-for.mp3",
+   "offsetMs": 609500,
+   "inGap": false,
+   "audioMs": 905000,
+   "startedAtMs": 1794416190500,
+   "nextAtMs": 1794417097000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794381122000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794381091500,
+   "nextAtMs": 1794381123000
+  }
+ },
+ {
+  "station": "unite_01",
+  "case": "29 s into a bulletin",
+  "t": 1794381120500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794381091500,
+   "nextAtMs": 1794381123000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://media.blubrry.com/thefretfiles/content.blubrry.com/thefretfiles/fret_files_ep217.mp3",
+   "offsetS": 448,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "171b37ef200f68f4db6448640cfc82d408d9c6a5",
+   "audioUrl": "https://media.blubrry.com/thefretfiles/content.blubrry.com/thefretfiles/fret_files_ep217.mp3",
+   "offsetMs": 448322,
+   "inGap": false,
+   "audioMs": 2695000,
+   "startedAtMs": 1794364006000,
+   "nextAtMs": 1794366702500
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794381853700,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetS": 5053,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "365504482d5b0ed39ed2bc41159333ccb2686e0c",
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetMs": 5053700,
+   "inGap": true,
+   "audioMs": 5053000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794381854500
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794448110499,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/seamwork/podcast-break-announcement.mp3?dest-id=2147516",
+   "offsetS": 135,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "0cde1e14b328fef8a2f2b2ad9ea3001a39090cbb",
+   "audioUrl": "https://traffic.libsyn.com/secure/seamwork/podcast-break-announcement.mp3?dest-id=2147516",
+   "offsetMs": 135499,
+   "inGap": true,
+   "audioMs": 134000,
+   "startedAtMs": 1794447975000,
+   "nextAtMs": 1794448110500
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "at the loop wrap",
+  "t": 1794448110500,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "365504482d5b0ed39ed2bc41159333ccb2686e0c",
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 5053000,
+   "startedAtMs": 1794448110500,
+   "nextAtMs": 1794453165000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794448110501,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "365504482d5b0ed39ed2bc41159333ccb2686e0c",
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 5053000,
+   "startedAtMs": 1794448110500,
+   "nextAtMs": 1794453165000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794595731500,
+  "perl": {
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetS": 5000,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "365504482d5b0ed39ed2bc41159333ccb2686e0c",
+   "audioUrl": "https://traffic.libsyn.com/secure/underthepuppet/UTP_123.mp3?dest-id=484854",
+   "offsetMs": 5000000,
+   "inGap": false,
+   "audioMs": 5053000,
+   "startedAtMs": 1794590731500,
+   "nextAtMs": 1794595786000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://s35948.pcdn.co/wp-content/uploads/GAMR_Episode3_F26.mp3",
+   "offsetS": 342,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "eebd5dfb50f505f5519435042694e4ab49e951bd",
+   "audioUrl": "https://s35948.pcdn.co/wp-content/uploads/GAMR_Episode3_F26.mp3",
+   "offsetMs": 342500,
+   "inGap": false,
+   "audioMs": 1408000,
+   "startedAtMs": 1794416457500,
+   "nextAtMs": 1794417867000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "past 30 s of a bulletin",
+  "t": 1794381885000,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 30,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 30500,
+   "inGap": true,
+   "audioMs": 30000,
+   "startedAtMs": 1794381854500,
+   "nextAtMs": 1794381886000
+  }
+ },
+ {
+  "station": "make_01",
+  "case": "29 s into a bulletin",
+  "t": 1794381883500,
+  "perl": {
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetS": 29,
+   "bulletin": 1
+  },
+  "js": {
+   "episodeId": "bulletin-sample-barf-garden",
+   "audioUrl": "https://data.staticradio.app/sample-bulletins/kati-bulletin-30s.mp3",
+   "offsetMs": 29000,
+   "inGap": false,
+   "audioMs": 30000,
+   "startedAtMs": 1794381854500,
+   "nextAtMs": 1794381886000
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf160812.mp4",
+   "offsetS": 9257,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a909694bb2eaefd95cc42e282f8284ee6488d0b8",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf160812.mp4",
+   "offsetMs": 9257322,
+   "inGap": false,
+   "audioMs": 10800000,
+   "startedAtMs": 1794355197000,
+   "nextAtMs": 1794365998500
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794387600700,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetS": 10800,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "3e9c04e5599a58a79548bd5b547af8c871054feb",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetMs": 10800700,
+   "inGap": true,
+   "audioMs": 10800000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794387601500
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794463211999,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf181102.mp4",
+   "offsetS": 10801,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a4235ffbb883a6344ac2f000996d59381e17d8b5",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf181102.mp4",
+   "offsetMs": 10801499,
+   "inGap": true,
+   "audioMs": 10800000,
+   "startedAtMs": 1794452410500,
+   "nextAtMs": 1794463212000
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "at the loop wrap",
+  "t": 1794463212000,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "3e9c04e5599a58a79548bd5b547af8c871054feb",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 10800000,
+   "startedAtMs": 1794463212000,
+   "nextAtMs": 1794474013500
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794463212001,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "3e9c04e5599a58a79548bd5b547af8c871054feb",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 10800000,
+   "startedAtMs": 1794463212000,
+   "nextAtMs": 1794474013500
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794641036000,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetS": 5000,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "3e9c04e5599a58a79548bd5b547af8c871054feb",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf150616.mp4",
+   "offsetMs": 5000000,
+   "inGap": false,
+   "audioMs": 10800000,
+   "startedAtMs": 1794636036000,
+   "nextAtMs": 1794646837500
+  }
+ },
+ {
+  "station": "sheila_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf250813.mp4",
+   "offsetS": 7595,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "9851569ec9ea6ef8ab1967c549279dbd6406f3a7",
+   "audioUrl": "https://s3.amazonaws.com/arch.wfmu.org/CF/cf250813.mp4",
+   "offsetMs": 7595500,
+   "inGap": false,
+   "audioMs": 10800000,
+   "startedAtMs": 1794409204500,
+   "nextAtMs": 1794420006000
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "before the epoch",
+  "t": 1794364454322,
+  "perl": {
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetS": 23655,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a8b6574eedb5b0d05088c90e52c515518b8c0df2",
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetMs": 23655822,
+   "inGap": false,
+   "audioMs": 36000000,
+   "startedAtMs": 1794340798500,
+   "nextAtMs": 1794376800000
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "inside the first 1.5 s gap",
+  "t": 1794379788700,
+  "perl": {
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetS": 2988,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "669d2799ef9077940cebe48456f111fd88ae1c8e",
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetMs": 2988700,
+   "inGap": true,
+   "audioMs": 2988000,
+   "startedAtMs": 1794376800000,
+   "nextAtMs": 1794379789500
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "one ms before the loop wraps",
+  "t": 1794452373999,
+  "perl": {
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetS": 36001,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a8b6574eedb5b0d05088c90e52c515518b8c0df2",
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetMs": 36001499,
+   "inGap": true,
+   "audioMs": 36000000,
+   "startedAtMs": 1794416372500,
+   "nextAtMs": 1794452374000
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "at the loop wrap",
+  "t": 1794452374000,
+  "perl": {
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "669d2799ef9077940cebe48456f111fd88ae1c8e",
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetMs": 0,
+   "inGap": false,
+   "audioMs": 2988000,
+   "startedAtMs": 1794452374000,
+   "nextAtMs": 1794455363500
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "one ms after the loop wraps",
+  "t": 1794452374001,
+  "perl": {
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetS": 0,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "669d2799ef9077940cebe48456f111fd88ae1c8e",
+   "audioUrl": "https://traffic.megaphone.fm/APO6533833692.mp3",
+   "offsetMs": 1,
+   "inGap": false,
+   "audioMs": 2988000,
+   "startedAtMs": 1794452374000,
+   "nextAtMs": 1794455363500
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "mid-loop, three loops on",
+  "t": 1794608522000,
+  "perl": {
+   "audioUrl": "https://sphinx.acast.com/p/open/s/60f9c4eb7dd5480012f98d21/e/e3d5c496-a243-44a1-b089-6337e59a84d4/media.mp3",
+   "offsetS": 2010,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "865511e7a2111f8cbdf8059d74f0e536c6b2d104",
+   "audioUrl": "https://sphinx.acast.com/p/open/s/60f9c4eb7dd5480012f98d21/e/e3d5c496-a243-44a1-b089-6337e59a84d4/media.mp3",
+   "offsetMs": 2010500,
+   "inGap": false,
+   "audioMs": 2338000,
+   "startedAtMs": 1794606511500,
+   "nextAtMs": 1794608851000
+  }
+ },
+ {
+  "station": "sleep_01",
+  "case": "mid-episode",
+  "t": 1794416800000,
+  "perl": {
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetS": 427,
+   "bulletin": 0
+  },
+  "js": {
+   "episodeId": "a8b6574eedb5b0d05088c90e52c515518b8c0df2",
+   "audioUrl": "https://www.podtrac.com/pts/redirect.mp3/traffic.megaphone.fm/DMLLC3890720078.mp3",
+   "offsetMs": 427500,
+   "inGap": false,
+   "audioMs": 36000000,
+   "startedAtMs": 1794416372500,
+   "nextAtMs": 1794452374000
+  }
+ }
+]

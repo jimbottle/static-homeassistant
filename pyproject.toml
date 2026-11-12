@@ -18,6 +18,8 @@ dev = [
   "mypy>=1.10",
   "pytest>=8.0",
   "pre-commit>=4.0",
+  # Validates the saved schedule fixtures against Static's published schema.
+  "jsonschema>=4.20",
 ]
 
 [tool.uv]
@@ -43,6 +45,10 @@ python_version = "3.14"
 strict = true
 ignore_missing_imports = true
 exclude = [".venv", "spikes"]
+# Modules are checked under their real package path,
+# custom_components.static_radio.<name>, so no file is ever seen under two names.
+explicit_package_bases = true
+mypy_path = "."
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
