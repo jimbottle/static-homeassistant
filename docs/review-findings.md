@@ -30,3 +30,4 @@ behind each. Read "Recurring patterns" before committing.
 | 2026-11-11 | 7204 | `parse_epoch_ms` went through a float and could land 1 ms short of JavaScript's `Date.parse` on an epoch with fractional seconds | Whole-number arithmetic, with a test |
 | 2026-11-11 | 7208 | The spike's README told the reader to save a room recording at the repo root, outside the ignored folder | The documented path is `spikes/out/`, and audio files anywhere under `spikes/` are ignored |
 | 2026-11-11 | 7208 | The spike's connection log was described as showing a player's read-ahead; the figure counts audio generated, with seconds of buffering in between | The README says what the log does and does not show |
+| 2026-11-11 | 7213 | The gate's second test run, the one without Home Assistant, installed the newest pytest instead of the locked one, so a new release could break the gate with no change here | The pure tests' dependencies are a locked group, installed alone and frozen |
