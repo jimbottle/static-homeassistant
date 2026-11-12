@@ -9,5 +9,11 @@
     "abort": {
       "single_instance_allowed": "Static Radio is already set up."
     }
+  },
+  "issues": {
+    "schema_version": {
+      "title": "Static's schedule is in a newer format",
+      "description": "Static now publishes its schedule in format {found}, and this integration was written for format {expected}. Stations may keep working, but something may be shown or timed wrongly. Check for an update to this integration. The notice clears itself once the formats match."
+    }
   }
 }

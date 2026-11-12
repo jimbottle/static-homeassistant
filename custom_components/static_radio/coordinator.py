@@ -8,6 +8,8 @@ Three jobs:
   30 hours from now is never played, the same guard as Schedule.pm.
 - Wake whatever shows now-playing at the moment a station moves to its next
   episode, so nothing has to poll the clock.
+- Tell the listener, with a repair notice, when Static's schedule is in a
+  newer format than this integration was written against.
 
 It touches no audio.
 """
@@ -21,13 +23,14 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
 from .api import SCHEDULE_MIN_INTERVAL_S, Fetch, Response, ScheduleClient
-from .const import DOMAIN
-from .schedule import Live, Schedule, ScheduleError, parse_schedule
+from .const import DEVELOPER_GUIDE_URL, DOMAIN
+from .schedule import SCHEMA_VERSION, Live, Schedule, ScheduleError, parse_schedule
 from .schedule import live as live_at
 from .support import has_support_urls
 
@@ -37,6 +40,8 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 FETCH_TIMEOUT_S = 30
+
+SCHEMA_ISSUE = "schema_version"  # the repair notice's id
 
 # A little past the client's 15-minute floor. A tick that lands a moment early
 # is answered from the copy in hand, which would stretch the wait to 30 minutes.
@@ -90,8 +95,34 @@ class StaticCoordinator(DataUpdateCoordinator[Schedule]):
         except ScheduleError as err:
             raise UpdateFailed(f"Static's schedule could not be used: {err}") from err
         self._parsed_from = raw
+        self._note_schema_version(schedule)
         self.schedule_has_links = has_support_urls(raw)
         return schedule
+
+    @callback
+    def _note_schema_version(self, schedule: Schedule) -> None:
+        """Raise a repair notice for an unfamiliar format, and clear it for a familiar one.
+
+        The schedule is still used: Static adds fields without warning and
+        unknown ones are ignored. The notice says this integration may need
+        an update, which a log line alone would not get across.
+        """
+        if schedule.schema_version == SCHEMA_VERSION:
+            ir.async_delete_issue(self.hass, DOMAIN, SCHEMA_ISSUE)
+            return
+        ir.async_create_issue(
+            self.hass,
+            DOMAIN,
+            SCHEMA_ISSUE,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=SCHEMA_ISSUE,
+            translation_placeholders={
+                "found": str(schedule.schema_version or "unknown"),
+                "expected": str(SCHEMA_VERSION),
+            },
+            learn_more_url=DEVELOPER_GUIDE_URL,
+        )
 
     def live(self, station_id: str, at_ms: int | None = None) -> Live | None:
         """What is on a station, or None when it must not be played.
