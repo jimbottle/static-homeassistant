@@ -80,7 +80,9 @@ provider. Do not build these without asking.
 - Units in constant names, the measurement in the comment (`GAP_MS`,
   `BULLETIN_CAP_MS`, `LEAD_MS`), matching Static's reference ports.
 - Tests live in `tests/` and run offline. Tests that need the Home Assistant
-  harness are kept apart from the pure-Python ones.
+  harness live in `tests/ha/`, apart from the pure-Python ones, and
+  `scripts/verify.sh` runs the pure ones a second time with no Home Assistant
+  installed.
 - Nothing under `spikes/` is reused in the integration.
 - Spoken replies are one sentence, end in a period, and never end in a
   question mark. Sentence lists are prefixed `static_`.
