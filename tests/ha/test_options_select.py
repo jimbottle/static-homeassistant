@@ -14,6 +14,7 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant, ServiceCall, State
 from homeassistant.data_entry_flow import FlowResultType, InvalidData
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import intent
 from pytest_homeassistant_custom_component.common import (
@@ -118,6 +119,40 @@ async def test_configure_takes_speakers_a_lead_for_each_and_a_phone(
     assert hass.states.get(_select_id(hass, entry, SPEAKER)) is not None
     assert hass.states.get(_select_id(hass, entry, OTHER)) is not None
     assert aioclient_mock.call_count == 1  # the reload did not ask Static again
+
+
+async def test_only_phones_are_offered_and_a_removed_speaker_loses_its_selector(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+) -> None:
+    for action in ("mobile_app_phone", "send_message", "persistent_notification"):
+        async_mock_service(hass, "notify", action)
+    entry = _entry(hass, {CONF_SPEAKERS: [SPEAKER, OTHER], CONF_LEADS_MS: {}})
+    await _set_up(hass, entry, aioclient_mock, schedule_text_with_links)
+    kept, removed = _select_id(hass, entry, SPEAKER), _select_id(hass, entry, OTHER)
+    await hass.services.async_call(
+        "select", "select_option", {"entity_id": kept, "option": "News"}, blocking=True
+    )
+
+    first = await hass.config_entries.options.async_init(entry.entry_id)
+    form = first["data_schema"]
+    assert form is not None
+    offered = form.schema[CONF_NOTIFY_SERVICE].config["options"]
+    assert offered == ["none", "mobile_app_phone"]
+
+    second = await hass.config_entries.options.async_configure(
+        first["flow_id"], {CONF_SPEAKERS: [SPEAKER], CONF_NOTIFY_SERVICE: "none"}
+    )
+    await hass.config_entries.options.async_configure(second["flow_id"], {SPEAKER: 1000})
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    registry = er.async_get(hass)
+    assert registry.async_get(removed) is None  # no orphan left on the device
+    assert registry.async_get(kept) is not None
+    still = hass.states.get(kept)
+    assert still is not None
+    assert still.state == "News"  # the speaker that stayed kept its station
 
 
 async def test_configure_with_no_speakers_and_no_phone_saves_nothing_to_tune(
@@ -309,6 +344,29 @@ async def test_with_no_phone_chosen_the_link_is_read_out(
     assert said.startswith("No phone is set up for Static links, but you can support ")
     assert spoken_link(episode.support_url) in said
     assert sent == []
+
+
+async def test_a_phone_that_cannot_be_reached_still_gets_the_listener_the_link(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    when, station, episode = _find(schedule_text_with_links, "link")
+    assert episode.support_url is not None
+    freezer.move_to(when)
+
+    async def unreachable(_call: ServiceCall) -> None:
+        raise HomeAssistantError("device not reachable")
+
+    hass.services.async_register("notify", "mobile_app_phone", unreachable)
+    entry = _entry(hass, {CONF_NOTIFY_SERVICE: "mobile_app_phone"})
+    await _set_up(hass, entry, aioclient_mock, schedule_text_with_links)
+
+    said = await _send(hass, station)
+
+    assert said.startswith("I could not send it to your phone, but you can support ")
+    assert spoken_link(episode.support_url) in said
 
 
 @pytest.mark.parametrize("kind", ["no link", "bulletin"])

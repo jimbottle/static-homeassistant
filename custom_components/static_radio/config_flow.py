@@ -39,6 +39,7 @@ from .const import (
 )
 
 NO_PHONE = "none"  # the choice that means "send Support links nowhere"
+PHONE_PREFIX = "mobile_app_"  # how the Home Assistant app names a phone's notify action
 
 
 class StaticConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -79,7 +80,14 @@ class StaticOptionsFlow(OptionsFlowWithReload):
                 return await self.async_step_leads()
             return self.async_create_entry(data={**self._chosen, CONF_LEADS_MS: {}})
 
-        phones = [NO_PHONE, *sorted(self.hass.services.async_services_for_domain("notify"))]
+        # Only phones with the Home Assistant app: other notify actions take
+        # different fields, and would not be "your phone" in the reply.
+        apps = sorted(
+            name
+            for name in self.hass.services.async_services_for_domain("notify")
+            if name.startswith(PHONE_PREFIX)
+        )
+        phones = [NO_PHONE, *apps]
         current_phone = options.get(CONF_NOTIFY_SERVICE, NO_PHONE)
         if current_phone not in phones:
             phones.append(current_phone)  # keep a choice whose phone is offline just now

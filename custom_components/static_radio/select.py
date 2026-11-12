@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from homeassistant.components.select import SelectEntity
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -29,11 +30,21 @@ async def async_setup_entry(
     entry: StaticConfigEntry,
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
-    """One selector per chosen speaker."""
+    """One selector per chosen speaker, and none left over for a speaker taken off the list."""
+    speakers: list[str] = entry.options.get(CONF_SPEAKERS, [])
+    wanted = {_unique_id(entry, speaker) for speaker in speakers}
+    registry = er.async_get(hass)
+    for known in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if known.domain == "select" and known.unique_id not in wanted:
+            registry.async_remove(known.entity_id)
     async_add_entities(
         StationSelect(entry.runtime_data, entry, speaker, _speaker_name(hass, speaker))
-        for speaker in entry.options.get(CONF_SPEAKERS, [])
+        for speaker in speakers
     )
+
+
+def _unique_id(entry: StaticConfigEntry, speaker: str) -> str:
+    return f"{entry.entry_id}_{speaker}_station"
 
 
 def _speaker_name(hass: HomeAssistant, entity_id: str) -> str:
@@ -57,7 +68,7 @@ class StationSelect(CoordinatorEntity[StaticCoordinator], SelectEntity, RestoreE
     ) -> None:
         super().__init__(coordinator)
         self.speaker = speaker
-        self._attr_unique_id = f"{entry.entry_id}_{speaker}_station"
+        self._attr_unique_id = _unique_id(entry, speaker)
         self._attr_name = f"{speaker_name} station"
         self._attr_device_info = service_device(entry)
         self._attr_current_option = None

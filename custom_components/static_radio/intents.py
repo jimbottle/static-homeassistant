@@ -32,6 +32,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 
@@ -234,16 +235,26 @@ class SendSupportLinkHandler(_StaticHandler):
                 f"at {spoken_link(link)}.",
                 on_air,
             )
-        await hass.services.async_call(
-            "notify",
-            phone,
-            {
-                "title": f"Support {show}",
-                "message": f"Support: {link}",
-                # Tapping the notification opens the show's Support page, on
-                # Android (clickAction) and on iOS (url).
-                "data": {"clickAction": link, "url": link},
-            },
-            blocking=True,
-        )
+        try:
+            await hass.services.async_call(
+                "notify",
+                phone,
+                {
+                    "title": f"Support {show}",
+                    "message": f"Support: {link}",
+                    # Tapping the notification opens the show's Support page,
+                    # on Android (clickAction) and on iOS (url).
+                    "data": {"clickAction": link, "url": link},
+                },
+                blocking=True,
+            )
+        except HomeAssistantError, vol.Invalid:
+            # A phone that cannot be reached, or an action that takes other
+            # fields: the listener still gets the link, read out.
+            return self._reply(
+                intent_obj,
+                f"I could not send it to your phone, but you can support {show} "
+                f"at {spoken_link(link)}.",
+                on_air,
+            )
         return self._reply(intent_obj, f"I sent the Support link for {show} to your phone.", on_air)
