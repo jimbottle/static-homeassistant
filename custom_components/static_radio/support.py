@@ -30,9 +30,16 @@ _LOGGER = logging.getLogger(__name__)
 
 FEED_MIN_INTERVAL_S = 24 * 3600  # the guide's floor: each feed at most once a day
 
-# The tag, as the guide's own pattern reads it.
-_FUNDING = re.compile(r"""<podcast:funding\b[^>]*\burl\s*=\s*["']([^"']+)["']""")
+# A feed is somebody else's text, and can be many megabytes. The channel's own
+# tags come before the first episode, so only the start of the file is read,
+# and the pattern below is the guide's with a limit on every run of characters,
+# so no feed can make it slow.
+CHANNEL_MAX_BYTES = 256 * 1024
+_FUNDING = re.compile(
+    r"""<podcast:funding\b[^<>]{0,2000}?\burl\s{0,20}=\s{0,20}["']([^"'<>]{1,2048})["']"""
+)
 _FIRST_ITEM = re.compile(r"<item[\s>]")
+_WEB = ("https://", "http://")
 
 
 def has_support_urls(raw_schedule: dict[str, Any]) -> bool:
@@ -61,9 +68,7 @@ def funding_url(feed_text: str) -> str | None:
     if found is None:
         return None
     url = html.unescape(found.group(1).strip())
-    if not url.lower().startswith(("https://", "http://")):
-        return None
-    return url
+    return url if url.lower().startswith(_WEB) else None
 
 
 class SupportLinks:
@@ -75,8 +80,8 @@ class SupportLinks:
         self._fetch = fetch
         self._headers = request_headers(version)
         self._clock = clock if clock is not None else time.monotonic
-        self._lock = asyncio.Lock()
         self._feeds: dict[str, tuple[str | None, float]] = {}  # feed_url -> (link, asked at)
+        self._asking: dict[str, asyncio.Lock] = {}  # one per feed being asked right now
 
     async def for_episode(self, episode: Episode, schedule_has_links: bool) -> str | None:
         """The link to show beside this episode, or None for no link.
@@ -88,22 +93,33 @@ class SupportLinks:
             return None
         if episode.support_url:
             return episode.support_url
-        if schedule_has_links or not episode.feed_url:
+        if schedule_has_links or not episode.feed_url.lower().startswith(_WEB):
             return None
         return await self._from_feed(episode.feed_url)
 
+    def _known(self, feed_url: str, now: float) -> tuple[str | None] | None:
+        """Today's answer for a feed, wrapped so that "no link" is not "not asked"."""
+        known = self._feeds.get(feed_url)
+        if known is not None and now - known[1] < FEED_MIN_INTERVAL_S:
+            return (known[0],)
+        return None
+
     async def _from_feed(self, feed_url: str) -> str | None:
-        async with self._lock:
+        if (known := self._known(feed_url, self._clock())) is not None:
+            return known[0]
+        # One lock per feed: two lookups of the same show share one request,
+        # and a slow host holds up nobody else's.
+        async with self._asking.setdefault(feed_url, asyncio.Lock()):
             now = self._clock()
-            known = self._feeds.get(feed_url)
-            if known is not None and now - known[1] < FEED_MIN_INTERVAL_S:
+            if (known := self._known(feed_url, now)) is not None:
                 return known[0]
 
             link: str | None = None
             try:
                 response = await self._fetch(feed_url, dict(self._headers))
                 if response.status == HTTP_OK:
-                    link = funding_url(response.body.decode("utf-8", "replace"))
+                    start = response.body[:CHANNEL_MAX_BYTES]
+                    link = funding_url(start.decode("utf-8", "replace"))
                 else:
                     _LOGGER.debug("support: feed answered HTTP %d", response.status)
             except Exception as err:
@@ -112,10 +128,16 @@ class SupportLinks:
             # A failure is remembered for the day too: no link for now, and
             # the show's host is not asked again on the next episode change.
             # Feeds that have left the schedule are dropped as they age out.
+            now = self._clock()
             self._feeds = {
                 url: entry
                 for url, entry in self._feeds.items()
                 if now - entry[1] < FEED_MIN_INTERVAL_S
             }
             self._feeds[feed_url] = (link, now)
+            self._asking = {
+                url: lock
+                for url, lock in self._asking.items()
+                if url in self._feeds or lock.locked()
+            }
             return link

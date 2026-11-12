@@ -15,6 +15,7 @@ from pathlib import Path
 from custom_components.static_radio.api import Response
 from custom_components.static_radio.schedule import Episode, parse_schedule
 from custom_components.static_radio.support import (
+    CHANNEL_MAX_BYTES,
     FEED_MIN_INTERVAL_S,
     SupportLinks,
     funding_url,
@@ -110,6 +111,13 @@ def test_a_link_that_is_not_a_web_address_is_dropped() -> None:
     assert funding_url(feed) is None
 
 
+def test_a_hostile_feed_is_read_quickly_and_yields_nothing() -> None:
+    # Thousands of unclosed tags: the pattern's limits keep this linear.
+    feed = "<channel>" + "<podcast:funding " * 20_000 + "x" * 200_000
+    assert funding_url(feed) is None
+    assert funding_url('<channel><podcast:funding url="https://e.com/' + "a" * 5000 + '">') is None
+
+
 # -- does the schedule carry links itself -------------------------------------
 
 
@@ -170,6 +178,49 @@ def test_an_episode_without_a_feed_asks_nothing() -> None:
     episode = _episode(feed_url="")
     assert asyncio.run(_links(host).for_episode(episode, schedule_has_links=False)) is None
     assert host.requests == []
+
+
+def test_only_web_feeds_are_asked() -> None:
+    host = FakeHost()
+    links = _links(host)
+    for feed_url in ("file:///etc/hosts", "ftp://example.com/feed.xml", "feed.xml"):
+        episode = _episode(feed_url=feed_url)
+        assert asyncio.run(links.for_episode(episode, schedule_has_links=False)) is None
+    assert host.requests == []
+
+
+def test_only_the_start_of_a_feed_is_read() -> None:
+    late = "<channel>" + " " * CHANNEL_MAX_BYTES + '<podcast:funding url="https://e.com/s"/>'
+    host = FakeHost(_feed(late))
+    assert asyncio.run(_links(host).for_episode(_episode(), False)) is None
+
+
+def test_a_slow_feed_holds_up_no_other_show() -> None:
+    other = _episode(feed_url="https://example.org/other.xml")
+
+    async def run() -> tuple[str | None, str | None, int]:
+        release = asyncio.Event()
+        asked: list[str] = []
+
+        async def fetch(url: str, headers: Mapping[str, str]) -> Response:
+            asked.append(url)
+            if url == FEED_URL:
+                await release.wait()
+            return _feed()
+
+        links = SupportLinks(fetch, "0.1.0", Clock())
+        slow_one = asyncio.create_task(links.for_episode(_episode(), False))
+        slow_two = asyncio.create_task(links.for_episode(_episode(episode_id="e2"), False))
+        await asyncio.sleep(0)
+        quick = await asyncio.wait_for(links.for_episode(other, False), timeout=1)
+        release.set()
+        first, second = await slow_one, await slow_two
+        assert first == second
+        return quick, first, asked.count(FEED_URL)
+
+    quick, slow, times_asked = asyncio.run(run())
+    assert quick == slow == "https://example.com/support?a=1&b=2"
+    assert times_asked == 1  # two lookups of one show shared one request
 
 
 # -- at most once a day per feed ----------------------------------------------
