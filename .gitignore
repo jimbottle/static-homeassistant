@@ -28,3 +28,10 @@ __pycache__/
 dist/
 .ruff_cache/
 .pytest_cache/
+
+# Spike output: connection logs and recordings hold house addresses and audio
+spikes/out/
+spikes/**/*.wav
+spikes/**/*.flac
+spikes/**/*.m4a
+spikes/**/*.mp3
