@@ -15,12 +15,13 @@ import time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 
 from .api import ScheduleClient
 from .const import DOMAIN
-from .coordinator import StaticCoordinator, session_fetch
+from .coordinator import SCHEMA_ISSUE, StaticCoordinator, session_fetch
 from .schedule import parse_schedule
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
@@ -66,4 +67,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> b
     unloaded: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     if unloaded:
         await entry.runtime_data.async_shutdown()
+        # A notice about the schedule's format belongs to a loaded entry. A
+        # reload raises it again from the schedule in hand if it still applies.
+        ir.async_delete_issue(hass, DOMAIN, SCHEMA_ISSUE)
     return unloaded

@@ -17,6 +17,7 @@ import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
@@ -25,7 +26,11 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.static_radio.api import SCHEDULE_URL
 from custom_components.static_radio.const import DOMAIN
-from custom_components.static_radio.coordinator import REFRESH_INTERVAL, StaticCoordinator
+from custom_components.static_radio.coordinator import (
+    REFRESH_INTERVAL,
+    SCHEMA_ISSUE,
+    StaticCoordinator,
+)
 
 MANIFEST = json.loads(
     (
@@ -243,6 +248,68 @@ async def test_listeners_are_woken_when_a_station_changes_episode(
     await hass.async_block_till_done()
     assert woken == [1]
     remove()
+
+
+async def test_an_unfamiliar_schedule_format_raises_a_notice_that_clears_itself(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    issues = ir.async_get(hass)
+    newer = json.loads(schedule_text) | {"schema_version": 9}
+    aioclient_mock.get(SCHEDULE_URL, text=json.dumps(newer), headers={"ETag": '"v9"'})
+    coordinator = await _set_up(hass, entry)
+
+    # The schedule is still used; the listener is told.
+    assert len(coordinator.data.stations) == 9
+    issue = issues.async_get_issue(DOMAIN, SCHEMA_ISSUE)
+    assert issue is not None
+    assert issue.severity is ir.IssueSeverity.WARNING
+    assert issue.translation_placeholders == {"found": "9", "expected": "8"}
+    assert not issue.is_fixable
+
+    # Static goes back to the format this was written for: the notice goes.
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(SCHEDULE_URL, text=schedule_text, headers={"ETag": '"v8"'})
+    remove = coordinator.async_add_listener(lambda: None)
+    freezer.tick(REFRESH_INTERVAL + timedelta(seconds=5))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert issues.async_get_issue(DOMAIN, SCHEMA_ISSUE) is None
+    remove()
+
+
+async def test_the_notice_goes_with_the_entry_and_returns_on_a_reload(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+) -> None:
+    issues = ir.async_get(hass)
+    newer = json.loads(schedule_text) | {"schema_version": 9}
+    aioclient_mock.get(SCHEDULE_URL, text=json.dumps(newer))
+    await _set_up(hass, entry)
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert issues.async_get_issue(DOMAIN, SCHEMA_ISSUE) is not None
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert issues.async_get_issue(DOMAIN, SCHEMA_ISSUE) is None
+
+
+async def test_the_usual_format_raises_no_notice(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+) -> None:
+    aioclient_mock.get(SCHEDULE_URL, text=schedule_text)
+    await _set_up(hass, entry)
+    assert ir.async_get(hass).async_get_issue(DOMAIN, SCHEMA_ISSUE) is None
 
 
 async def test_another_days_schedule_is_never_live(
