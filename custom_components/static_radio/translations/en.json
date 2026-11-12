@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Static Radio (unofficial)",
+        "description": "Plays the live stations of [Static Radio]({static_url}) on your media players. This is an unofficial integration, not affiliated with, endorsed by or supported by Static. It needs no account."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "Static Radio is already set up."
+    }
+  }
+}

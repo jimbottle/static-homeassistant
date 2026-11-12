@@ -1,0 +1,14 @@
+{
+  "domain": "static_radio",
+  "name": "Static Radio (unofficial)",
+  "codeowners": ["@jimbottle"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/jimbottle/static-homeassistant",
+  "integration_type": "service",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/jimbottle/static-homeassistant/issues",
+  "requirements": [],
+  "single_config_entry": true,
+  "version": "0.0.0"
+}
