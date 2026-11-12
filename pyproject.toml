@@ -30,6 +30,9 @@ pure = [
   "pytest>=8.0",
   # Validates the saved schedule fixtures against Static's published schema.
   "jsonschema>=4.20",
+  # The sentence matcher Home Assistant Core 2026.7.2 ships, at the version
+  # it pins, so the sentence pack is tested against what a listener runs.
+  "hassil==3.8.0",
 ]
 
 [tool.uv]

@@ -1,0 +1,94 @@
+# What a listener can say to Static Radio (unofficial), in English.
+#
+# Three rules shape every line here:
+#
+# - Every sentence contains the word "Static". Homes already have phrases
+#   like "next station", "play the news" and "play <anything>"; anchoring on
+#   the name is what keeps this pack from capturing any of them.
+# - Station names are a fixed list with a prefixed name, static_station, and
+#   there is no wildcard anywhere. A list declared here replaces any list of
+#   the same name in every other sentence file for the language, so an
+#   unprefixed "station" or "name" would quietly break someone else's
+#   sentences.
+# - Nothing here pauses, stops, resumes, seeks or skips within a show.
+#   Static is live: a listener's usual stop phrase stops it, and playing it
+#   again tunes to the live moment.
+#
+# The station list follows Static's dial as it stood on 2026-11-11, with the
+# spellings a speech recognizer is likely to write. A test compares it with
+# the saved schedule, so a new station on the dial is noticed.
+language: en
+intents:
+  StaticPlay:
+    data:
+      - sentences:
+          - "<static_start> <static> [please]"
+          - "<static_start> <static> on [the] speaker [please]"
+
+  StaticTune:
+    data:
+      - sentences:
+          - "<static_start> <static> {static_station:station} [please]"
+          - "<static_start> [the] {static_station:station} station on <static> [please]"
+          - "(tune|switch|change|set) <static> to {static_station:station} [please]"
+          - "(tune|switch|change) to {static_station:station} on <static> [please]"
+
+  StaticNext:
+    data:
+      - sentences:
+          - "next <static> station [please]"
+          - "(go to|play|switch to|skip to) [the] next <static> station [please]"
+          - "<static> next station [please]"
+
+  StaticPrevious:
+    data:
+      - sentences:
+          # Not "last": "the last Static station" could as well mean the one
+          # tuned before, which a plain "play Static" already gives.
+          - "previous <static> station [please]"
+          - "(go to|go back to|play|switch to) [the] previous <static> station [please]"
+          - "go back (a|one) <static> station [please]"
+          - "<static> previous station [please]"
+
+  StaticWhatsOn:
+    data:
+      - sentences:
+          - "(what's|what is|whats) (on|playing on) <static>"
+          - "(what's|what is|whats) <static> playing"
+          - "(what's|what is|whats) (this|that) on <static>"
+          - "what (show|station) is [this] on <static>"
+
+  StaticSendSupportLink:
+    data:
+      - sentences:
+          - "send [me] [the] <static> support link [please]"
+          - "send [me] the support link for <static> [please]"
+          - "send [the] <static> support link to my phone [please]"
+          - "how (do|can) I support [this|the] <static> show"
+
+expansion_rules:
+  # "Static" alone or "Static Radio". Recognizers also write "static's".
+  static: "(static|static radio|static's)"
+  static_start: "(play|put on|turn on|start|listen to)"
+
+lists:
+  static_station:
+    values:
+      - in: "nature"
+        out: "Nature"
+      - in: "work"
+        out: "Work"
+      - in: "(learn|learning)"
+        out: "Learn"
+      - in: "news"
+        out: "News"
+      - in: "weird"
+        out: "Weird"
+      - in: "(unite|united)"
+        out: "Unite"
+      - in: "make"
+        out: "Make"
+      - in: "(sheila b|sheila bee|sheila be|shiela b|sheila)"
+        out: "SHEILA B"
+      - in: "sleep"
+        out: "Sleep"
