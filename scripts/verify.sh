@@ -19,7 +19,7 @@ step ruff-format uv run --frozen ruff format --check .
 step mypy uv run --frozen mypy .
 
 # asyncio_mode in pyproject.toml belongs to a plugin this environment lacks.
-step pure-without-ha uv run --isolated --no-project --with pytest --with jsonschema \
+step pure-without-ha uv run --frozen --isolated --only-group pure \
   pytest -q -p no:cacheprovider -W ignore::pytest.PytestConfigWarning
 
 echo "== uv run pytest -q"

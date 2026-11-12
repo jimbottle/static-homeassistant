@@ -16,14 +16,20 @@ dev = [
   # Upper bound keeps local runs on the same minor as .pre-commit-config.yaml.
   "ruff>=0.17.3,<0.18",
   "mypy>=1.10",
-  "pytest>=8.0",
   "pre-commit>=4.0",
-  # Validates the saved schedule fixtures against Static's published schema.
-  "jsonschema>=4.20",
+  {include-group = "pure"},
   # The Home Assistant test harness. Each release pins one Home Assistant
   # exactly; 0.13.346 is the one that pins Core 2026.7.2, the release this is
   # built against. Move it only with that release.
   "pytest-homeassistant-custom-component==0.13.346",
+]
+
+# All the pure-Python tests need. scripts/verify.sh installs this group alone,
+# from the lockfile, to run them with no Home Assistant present.
+pure = [
+  "pytest>=8.0",
+  # Validates the saved schedule fixtures against Static's published schema.
+  "jsonschema>=4.20",
 ]
 
 [tool.uv]

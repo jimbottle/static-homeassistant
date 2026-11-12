@@ -2922,6 +2922,10 @@ dev = [
     { name = "pytest-homeassistant-custom-component" },
     { name = "ruff" },
 ]
+pure = [
+    { name = "jsonschema" },
+    { name = "pytest" },
+]
 
 [package.metadata]
 
@@ -2933,6 +2937,10 @@ dev = [
     { name = "pytest", specifier = ">=8.0" },
     { name = "pytest-homeassistant-custom-component", specifier = "==0.13.346" },
     { name = "ruff", specifier = ">=0.17.3,<0.18" },
+]
+pure = [
+    { name = "jsonschema", specifier = ">=4.20" },
+    { name = "pytest", specifier = ">=8.0" },
 ]
 
 [[package]]
