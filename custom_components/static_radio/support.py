@@ -92,7 +92,8 @@ class SupportLinks:
         if episode.is_bulletin:
             return None
         if episode.support_url:
-            return episode.support_url
+            # A listener taps this, so only a web address is passed on.
+            return episode.support_url if episode.support_url.lower().startswith(_WEB) else None
         if schedule_has_links or not episode.feed_url.lower().startswith(_WEB):
             return None
         return await self._from_feed(episode.feed_url)

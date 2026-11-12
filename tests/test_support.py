@@ -149,6 +149,13 @@ def test_the_schedules_own_link_wins_and_no_feed_is_asked() -> None:
     assert host.requests == []
 
 
+def test_a_schedule_link_that_is_not_a_web_address_is_dropped() -> None:
+    host = FakeHost()
+    episode = _episode(support_url="javascript:alert(1)")
+    assert asyncio.run(_links(host).for_episode(episode, schedule_has_links=True)) is None
+    assert host.requests == []
+
+
 def test_a_bulletin_never_has_a_link() -> None:
     host = FakeHost()
     links = _links(host)
