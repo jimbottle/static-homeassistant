@@ -312,3 +312,28 @@ def test_every_show_in_the_saved_schedule_would_ask_its_own_feed_once() -> None:
 
     asyncio.run(run())
     assert sorted(url for url, _ in host.requests) == sorted(feeds)
+
+
+def test_the_first_schedule_with_links_is_believed_as_it_stands() -> None:
+    """2026-11-12 was the first day's file to carry supportUrl; it is saved as a fixture."""
+    import jsonschema  # noqa: PLC0415 - only this test needs it
+
+    fixtures = Path(__file__).parent / "fixtures"
+    raw = json.loads((fixtures / "schedule-wear.2026-11-12.json").read_text(encoding="utf-8"))
+    schema = json.loads((fixtures / "schedule-wear.v8.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(raw, schema)
+
+    assert has_support_urls(raw)
+    schedule = parse_schedule(raw)
+    episodes = [e for station in schedule.stations for e in station.episodes]
+    with_link = [e for e in episodes if e.support_url]
+    assert with_link
+    assert all(e.support_url.startswith("https://") for e in with_link if e.support_url)
+    assert not any(e.is_bulletin for e in with_link)
+
+    # With links in the file, a show without one has none, and its feed is never read.
+    host = FakeHost()
+    without = next(e for e in episodes if not e.support_url and not e.is_bulletin)
+    assert asyncio.run(_links(host).for_episode(without, has_support_urls(raw))) is None
+    assert asyncio.run(_links(host).for_episode(with_link[0], True)) == with_link[0].support_url
+    assert host.requests == []

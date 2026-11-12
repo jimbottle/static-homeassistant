@@ -57,14 +57,21 @@ intents:
           - "(what's|what is|whats) <static> playing"
           - "(what's|what is|whats) (this|that) on <static>"
           - "what (show|station) is [this] on <static>"
+          - "(what's|what is|whats) (on|playing on) <static> {static_station:station}"
+          - "(what's|what is|whats) (on|playing on) [the] {static_station:station} station on <static>"
 
-  StaticSendSupportLink:
+  # The show's own Support page. The reply says the link; it is not sent
+  # anywhere yet, so "send me" gets the same spoken answer.
+  StaticSupportLink:
     data:
       - sentences:
-          - "send [me] [the] <static> support link [please]"
-          - "send [me] the support link for <static> [please]"
-          - "send [the] <static> support link to my phone [please]"
+          - "(what's|what is|whats) the <static> support link"
+          - "(what's|what is|whats) the support link for <static> [{static_station:station}]"
+          - "(what's|what is|whats) the <static> {static_station:station} support link"
+          - "(give|tell|send) me the <static> support link"
+          - "(give|tell|send) me the support link for <static> [{static_station:station}]"
           - "how (do|can) I support [this|the] <static> show"
+          - "how (do|can) I support [the show on] <static> {static_station:station}"
 
 expansion_rules:
   # "Static" alone or "Static Radio". Recognizers also write "static's".

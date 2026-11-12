@@ -32,7 +32,7 @@ INTENT_NAMES = {
     "StaticNext",
     "StaticPrevious",
     "StaticWhatsOn",
-    "StaticSendSupportLink",
+    "StaticSupportLink",
 }
 
 
@@ -80,9 +80,15 @@ def _match(pack: hassil.Intents, said: str) -> tuple[str, dict[str, Any]] | None
         ("what is playing on static radio", "StaticWhatsOn", {}),
         ("whats static playing", "StaticWhatsOn", {}),
         ("What show is this on Static?", "StaticWhatsOn", {}),
-        ("Send me the Static support link.", "StaticSendSupportLink", {}),
-        ("send the support link for static", "StaticSendSupportLink", {}),
-        ("How can I support this Static show?", "StaticSendSupportLink", {}),
+        ("What's on Static News?", "StaticWhatsOn", {"station": "News"}),
+        ("what is playing on the nature station on static", "StaticWhatsOn", {"station": "Nature"}),
+        ("Send me the Static support link.", "StaticSupportLink", {}),
+        ("What's the Static support link?", "StaticSupportLink", {}),
+        ("give me the support link for static", "StaticSupportLink", {}),
+        ("What's the support link for Static News?", "StaticSupportLink", {"station": "News"}),
+        ("whats the static sleep support link", "StaticSupportLink", {"station": "Sleep"}),
+        ("How can I support this Static show?", "StaticSupportLink", {}),
+        ("How do I support Static Weird?", "StaticSupportLink", {"station": "Weird"}),
     ],
 )
 def test_what_a_listener_says_reaches_its_intent(

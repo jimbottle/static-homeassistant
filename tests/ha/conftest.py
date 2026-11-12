@@ -15,6 +15,7 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.static_radio.const import DOMAIN, TITLE
 
 SCHEDULE_FIXTURE = Path(__file__).resolve().parent.parent / "fixtures/schedule-wear.2026-11-11.json"
+SCHEDULE_WITH_LINKS_FIXTURE = SCHEDULE_FIXTURE.with_name("schedule-wear.2026-11-12.json")
 
 
 @pytest.fixture(autouse=True)
@@ -25,6 +26,12 @@ def _custom_integrations(enable_custom_integrations: None) -> None:
 @pytest.fixture
 def schedule_text() -> str:
     return SCHEDULE_FIXTURE.read_text(encoding="utf-8")
+
+
+@pytest.fixture
+def schedule_text_with_links() -> str:
+    """The first day's schedule that carried Support links (supportUrl) itself."""
+    return SCHEDULE_WITH_LINKS_FIXTURE.read_text(encoding="utf-8")
 
 
 @pytest.fixture
