@@ -1,8 +1,10 @@
 # Raylytics VC Standard, templates/ci/python.yml (STANDARD.md §8, §12).
 # Jobs are named exactly pre-commit and test; rulesets/main.json requires
 # both by name. hassfest is Home Assistant's own check of the integration's
-# manifest and translations. There is no build job yet: the release zip and
-# the HACS check arrive with the first release. The pr-title job applies to Tier 1 only;
+# manifest and translations. build makes the release zip with scripts/dist.sh,
+# the script release.yml runs on a tag, and checks what is in it. HACS's own
+# validation is not run yet: it needs the README and the repo's description
+# and topics, which arrive with the first release. The pr-title job applies to Tier 1 only;
 # scripts/bootstrap-repo.sh removes the block between the tier1-only markers
 # for Tier 2. Actions are pinned to full commit SHAs (version in the trailing
 # comment), resolved with `gh api` on 2026-10-27.
@@ -66,6 +68,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: home-assistant/actions/hassfest@86d4564712fa02543c808e3a693dd04f9d3f8361 # master, 2026-10-26
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the release zip
+        run: scripts/dist.sh
+      - name: The zip holds the integration and nothing else
+        run: |
+          zip="$(ls dist/static_radio-*.zip)"
+          unzip -Z1 "$zip" | tee names.txt
+          if grep -v '^custom_components/static_radio/' names.txt; then
+            echo "::error::the zip holds a file outside custom_components/static_radio/"
+            exit 1
+          fi
+          grep -qx 'custom_components/static_radio/manifest.json' names.txt
+          python3 -c 'import json; json.load(open("hacs.json"))'
 
   # tier1-only: begin
   pr-title:
