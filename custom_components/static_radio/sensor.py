@@ -10,6 +10,10 @@ art is built into Static's own apps, and those fall back to the icon.
 Stations are read from the schedule, so a station that joins the dial gets a
 sensor and one that leaves goes unavailable. Each sensor changes at the
 moment its station moves to the next episode. It touches no audio.
+
+Each station also has a listeners sensor with Static's live count. Those start
+disabled: Static is asked for the counts, once a minute, only while at least
+one of them has been switched on.
 """
 
 from __future__ import annotations
@@ -17,7 +21,7 @@ from __future__ import annotations
 import asyncio
 from typing import Any
 
-from homeassistant.components.sensor import SensorEntity
+from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
@@ -26,6 +30,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import StaticConfigEntry
 from .const import DOMAIN, STATIC_URL, TITLE
 from .coordinator import StaticCoordinator
+from .counts import CountsCoordinator, counts_client
 from .feed import support_links
 from .schedule import Episode, Station
 from .support import SupportLinks
@@ -53,6 +58,7 @@ async def async_setup_entry(
     """Add a sensor for every station, now and as stations join the dial."""
     coordinator = entry.runtime_data
     links = await support_links(hass)
+    counts = CountsCoordinator(hass, entry, await counts_client(hass))
     known: set[str] = set()
 
     @callback
@@ -61,9 +67,20 @@ async def async_setup_entry(
         known.update(s.station_id for s in new)
         if new:
             async_add_entities(NowPlayingSensor(coordinator, entry, links, s) for s in new)
+            async_add_entities(ListenersSensor(counts, coordinator, entry, s) for s in new)
 
     add_new_stations()
     entry.async_on_unload(coordinator.async_add_listener(add_new_stations))
+
+
+def service_device(entry: StaticConfigEntry) -> DeviceInfo:
+    """The one device every sensor belongs to."""
+    return DeviceInfo(
+        identifiers={(DOMAIN, entry.entry_id)},
+        name=TITLE,
+        entry_type=DeviceEntryType.SERVICE,
+        configuration_url=STATIC_URL,
+    )
 
 
 class NowPlayingSensor(CoordinatorEntity[StaticCoordinator], SensorEntity):
@@ -88,12 +105,7 @@ class NowPlayingSensor(CoordinatorEntity[StaticCoordinator], SensorEntity):
         self._lookup: asyncio.Task[None] | None = None
         self._attr_unique_id = f"{entry.entry_id}_{station.station_id}_now_playing"
         self._attr_name = station.display_name
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry.entry_id)},
-            name=TITLE,
-            entry_type=DeviceEntryType.SERVICE,
-            configuration_url=STATIC_URL,
-        )
+        self._attr_device_info = service_device(entry)
 
     async def async_added_to_hass(self) -> None:
         await super().async_added_to_hass()
@@ -173,3 +185,46 @@ class NowPlayingSensor(CoordinatorEntity[StaticCoordinator], SensorEntity):
         if link is not None and episode == self._episode:
             self._support_url = link
             self.async_write_ha_state()
+
+
+class ListenersSensor(CoordinatorEntity[CountsCoordinator], SensorEntity):
+    """Static's live listener count for one station. Off until switched on."""
+
+    _attr_has_entity_name = True
+    _attr_icon = "mdi:account-multiple"
+    _attr_native_unit_of_measurement = "listeners"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    # Enabling one starts a request to Static every minute, so the listener
+    # chooses that; nothing is asked for a number nobody looks at.
+    _attr_entity_registry_enabled_default = False
+
+    def __init__(
+        self,
+        counts: CountsCoordinator,
+        schedule: StaticCoordinator,
+        entry: StaticConfigEntry,
+        station: Station,
+    ) -> None:
+        super().__init__(counts)
+        self._schedule = schedule
+        self._station_id = station.station_id
+        self._attr_unique_id = f"{entry.entry_id}_{station.station_id}_listeners"
+        self._attr_name = f"{station.display_name} listeners"
+        self._attr_device_info = service_device(entry)
+
+    async def async_added_to_hass(self) -> None:
+        await super().async_added_to_hass()
+        # The first numbers now, not a minute from now. The client's own
+        # floor still holds if several sensors are added together.
+        await self.coordinator.async_request_refresh()
+
+    @property
+    def available(self) -> bool:
+        """Unavailable once the station has left the dial."""
+        on_the_dial = self._schedule.data.station(self._station_id) is not None
+        return on_the_dial and self.coordinator.data is not None
+
+    @property
+    def native_value(self) -> int | None:
+        """The count, or unknown where Static does not say."""
+        return (self.coordinator.data or {}).get(self._station_id)
