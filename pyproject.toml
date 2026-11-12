@@ -20,6 +20,10 @@ dev = [
   "pre-commit>=4.0",
   # Validates the saved schedule fixtures against Static's published schema.
   "jsonschema>=4.20",
+  # The Home Assistant test harness. Each release pins one Home Assistant
+  # exactly; 0.13.346 is the one that pins Core 2026.7.2, the release this is
+  # built against. Move it only with that release.
+  "pytest-homeassistant-custom-component==0.13.346",
 ]
 
 [tool.uv]
@@ -53,3 +57,5 @@ mypy_path = "."
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+# The Home Assistant harness has async fixtures that every test gets.
+asyncio_mode = "auto"
