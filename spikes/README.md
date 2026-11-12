@@ -20,7 +20,34 @@ any real stream code is written.
 - `analyze.py` reads a recording and prints how far what was heard is from the
   clock.
 
-### Running it
+- `run.py` drives the whole thing unattended: it starts the server, asks Home
+  Assistant to play the stream, records the room, measures each tune and
+  writes one line per tune to `spikes/out/results.jsonl`.
+
+### Running the whole spike
+
+One machine does everything, so it has to sit within a couple of metres of the
+speaker, on the home network, plugged in and awake, for about three hours. The
+room should be quiet and nobody should use the speaker meanwhile.
+
+Put the house's details in an untracked `.env.spike` at the repo root (the
+names are listed at the top of `run.py`; none has a default), then:
+
+```bash
+uv run python spikes/click_track/run.py check   # silent: clocks, reachability, microphone
+uv run python spikes/click_track/run.py night   # everything, unattended
+```
+
+`night` runs a silent pass on each arm, then 20 audible tunes on each, then two
+hours on the arm that passed. A single arm or the two-hour run can be run alone
+(`arm A`, `arm A --silent`, `soak A`), and `--dry-run` prints the calls without
+making any. The speaker's volume is set for each pass and put back afterwards.
+
+An arm passes when every tune is measured, at least 18 of 20 start within 1 s
+of the arm's usual delay, and none is more than 2 s from it. The usual delay
+is the lead a real stream would use; it is the spread that a lead cannot fix.
+
+### Running the pieces by hand
 
 ```bash
 # 1. On a machine the player can reach, with an accurate clock:
