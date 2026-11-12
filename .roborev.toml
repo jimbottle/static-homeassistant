@@ -11,7 +11,9 @@ sets ground rules. A diff cannot show them, so flag any of these:
 
 - A request to a Static host or path other than schedule-wear.json,
   /api/counts, and the audio and art addresses the schedule itself lists.
-  Anything other than GET.
+  Anything other than GET. The one exception is .mcp.json, which points coding
+  agents at the read-only MCP server Static's developer guide publishes for
+  that purpose; flag any use of it from the integration's own code.
 - Audio written to disk or cached anywhere.
 - Seeking, skipping or episode selection offered to a listener. A bulletin
   skipped, muted or replaced.

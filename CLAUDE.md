@@ -38,7 +38,11 @@ that makes no sense, check the interpreter first (`uv run python -V`).
 - From Static, request only `schedule-wear.json`, `/api/counts`, and the audio
   and art addresses the schedule itself lists, all with `GET`. Never call any
   other Static host or path, including the presence and bulletin-slot endpoints
-  visible in Static's own reference ports.
+  visible in Static's own reference ports. One exception, for development
+  only: Static's guide publishes a read-only MCP server at
+  `https://staticradio.app/mcp` for AI assistants, and `.mcp.json` adds it so
+  a coding agent can cross-check what is live. The integration's own code
+  never calls it.
 - Stream each episode from the show's own host. Request `audioUrl` itself every
   time, never the address it redirects to.
 - Never write audio to disk, cache it, re-host it, or serve it to anyone but
