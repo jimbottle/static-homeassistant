@@ -130,6 +130,49 @@ async def test_a_failed_setup_retries_without_asking_inside_the_floor(
     assert aioclient_mock.call_count == 1
 
 
+async def test_an_unusable_schedule_does_not_cost_the_good_one(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    aioclient_mock.get(SCHEDULE_URL, text=schedule_text, headers={"ETag": '"day-1"'})
+    coordinator = await _set_up(hass, entry)
+    remove = coordinator.async_add_listener(lambda: None)
+
+    # Static serves a file that is valid JSON with nothing playable in it.
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(
+        SCHEDULE_URL,
+        text=json.dumps({"schema_version": 8, "categories": {}}),
+        headers={"ETag": '"broken"'},
+    )
+    freezer.tick(REFRESH_INTERVAL + timedelta(seconds=5))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert len(coordinator.data.stations) == 9
+    remove()
+
+    # A reload in that window still loads, from the copy kept.
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert _state(entry) is ConfigEntryState.LOADED
+    assert len(entry.runtime_data.data.stations) == 9
+
+    # And the next request offers the good file's ETag, not the broken one's.
+    aioclient_mock.clear_requests()
+    aioclient_mock.get(SCHEDULE_URL, status=304)
+    remove = entry.runtime_data.async_add_listener(lambda: None)
+    freezer.tick(REFRESH_INTERVAL + timedelta(seconds=5))
+    async_fire_time_changed(hass)
+    await hass.async_block_till_done()
+    assert aioclient_mock.call_count == 1
+    assert _headers(aioclient_mock, 0)["if-none-match"] == '"day-1"'
+    remove()
+
+
 async def test_the_schedule_is_only_refreshed_while_something_listens(
     hass: HomeAssistant,
     entry: MockConfigEntry,

@@ -20,6 +20,7 @@ from homeassistant.loader import async_get_integration
 from .api import ScheduleClient
 from .const import DOMAIN
 from .coordinator import StaticCoordinator, session_fetch
+from .schedule import parse_schedule
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
 
@@ -41,6 +42,8 @@ async def _schedule_client(hass: HomeAssistant) -> ScheduleClient:
             # Looked up now, not when api.py was imported, so a test that
             # freezes time also moves this clock.
             clock=time.monotonic,
+            # A file with nothing playable in it never replaces one that has.
+            check=parse_schedule,
         )
         hass.data[DOMAIN] = client
     return client

@@ -13,7 +13,8 @@ and this file is where they are kept:
 It does no I/O of its own and imports nothing from Home Assistant: the caller
 passes in a function that performs one GET, so the rules can be tested without
 a network. It hands back the decoded JSON; schedule.py turns that into a
-timeline.
+timeline. The caller can also pass a check, so a file that decodes but cannot
+be played never replaces a copy that can.
 """
 
 from __future__ import annotations
@@ -74,15 +75,24 @@ def request_headers(version: str) -> dict[str, str]:
     return {"User-Agent": user_agent(version), "Accept-Language": "en"}
 
 
+# Looks over a newly fetched schedule and raises if it cannot be used.
+Check = Callable[[dict[str, Any]], object]
+
+
 class ScheduleClient:
     """Keeps one copy of the schedule and asks for a new one politely."""
 
     def __init__(
-        self, fetch: Fetch, version: str, clock: Callable[[], float] = time.monotonic
+        self,
+        fetch: Fetch,
+        version: str,
+        clock: Callable[[], float] = time.monotonic,
+        check: Check | None = None,
     ) -> None:
         self._fetch = fetch
         self._headers = request_headers(version)
         self._clock = clock
+        self._check = check
         self._lock = asyncio.Lock()
         self._asked_at: float | None = None
         self._etag: str | None = None
@@ -100,6 +110,11 @@ class ScheduleClient:
         that is failing is not asked more often than one that is well. When a
         fetch fails the copy in hand is kept, and None is returned only if
         there has never been one.
+
+        A new file that the check refuses is treated as a failed fetch. Its
+        ETag is not kept either: sending it back would earn a 304, and the
+        unusable file would then stand in for the day's schedule until Static
+        published another.
         """
         async with self._lock:
             now = self._clock()
@@ -117,9 +132,18 @@ class ScheduleClient:
                 return self._raw
 
             fresh = _decode_schedule(response)
-            if fresh is not None:
-                self._raw = fresh
-                self._etag = response.header("ETag")
+            if fresh is None:
+                return self._raw
+            if self._check is not None:
+                try:
+                    self._check(fresh)
+                except Exception as err:
+                    # Any error at all: a file in a shape nobody expected is
+                    # as unusable as one that is merely empty.
+                    _LOGGER.warning("schedule: cannot be used, keeping the last one: %r", err)
+                    return self._raw
+            self._raw = fresh
+            self._etag = response.header("ETag")
             return self._raw
 
 

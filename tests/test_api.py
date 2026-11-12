@@ -8,6 +8,7 @@ from __future__ import annotations
 import asyncio
 import json
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
 from custom_components.static_radio.api import (
@@ -21,7 +22,9 @@ from custom_components.static_radio.api import (
     request_headers,
     user_agent,
 )
+from custom_components.static_radio.schedule import parse_schedule
 
+FIXTURE = Path(__file__).resolve().parent / "fixtures/schedule-wear.2026-11-11.json"
 SCHEDULE = {"schema_version": 8, "categories": {}}
 
 
@@ -132,6 +135,60 @@ def test_a_failed_fetch_keeps_the_copy_and_still_waits_15_minutes() -> None:
 
     asyncio.run(run())
     assert len(host.requests) == 5
+
+
+def _refuse_empty(raw: dict[str, Any]) -> None:
+    if not raw.get("categories"):
+        raise ValueError("no stations")
+
+
+def test_a_file_the_caller_cannot_use_does_not_replace_the_copy() -> None:
+    clock = Clock()
+    good = {"schema_version": 8, "categories": {"news_01": {}}}
+    host = FakeHost(_ok(good, '"good"'), _ok(SCHEDULE, '"bad"'), Response(304, {}, b""))
+    client = ScheduleClient(host.fetch, "0.1.0", clock, check=_refuse_empty)
+
+    async def run() -> None:
+        assert await client.get() == good
+        clock.now += SCHEDULE_MIN_INTERVAL_S
+        assert await client.get() == good  # the unusable file was refused
+        assert client.raw == good
+        clock.now += SCHEDULE_MIN_INTERVAL_S
+        assert await client.get() == good
+
+    asyncio.run(run())
+    # The refused file's ETag is never sent: a 304 for it would keep it forever.
+    assert host.requests[2][1]["If-None-Match"] == '"good"'
+
+
+def test_a_file_in_an_unexpected_shape_is_refused_by_the_real_parser() -> None:
+    clock = Clock()
+    good = json.loads(FIXTURE.read_text(encoding="utf-8"))
+    wrong_shape = {"schema_version": 8, "daily_epoch_utc": "2026-11-11T08:00:00Z", "categories": []}
+    host = FakeHost(_ok(good, '"good"'), _ok(wrong_shape, '"bad"'))
+    client = ScheduleClient(host.fetch, "0.1.0", clock, check=parse_schedule)
+
+    async def run() -> None:
+        assert await client.get() == good
+        clock.now += SCHEDULE_MIN_INTERVAL_S
+        assert await client.get() == good
+
+    asyncio.run(run())
+
+
+def test_an_unusable_first_file_gives_none_and_is_asked_for_again() -> None:
+    clock = Clock()
+    good = {"schema_version": 8, "categories": {"news_01": {}}}
+    host = FakeHost(_ok(SCHEDULE, '"bad"'), _ok(good, '"good"'))
+    client = ScheduleClient(host.fetch, "0.1.0", clock, check=_refuse_empty)
+
+    async def run() -> None:
+        assert await client.get() is None
+        clock.now += SCHEDULE_MIN_INTERVAL_S
+        assert await client.get() == good
+
+    asyncio.run(run())
+    assert "If-None-Match" not in host.requests[1][1]
 
 
 def test_no_copy_yet_and_a_failure_gives_none() -> None:
