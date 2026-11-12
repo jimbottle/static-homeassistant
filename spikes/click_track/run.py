@@ -108,19 +108,22 @@ class House:
         self.ssh_host = ssh_host
         self.dry_run = dry_run
 
-    def _run(self, remote: str, stdin: str = "") -> str:
+    def _run(self, remote: str, stdin: str = "", tries: int = SSH_TRIES) -> str:
         """Run a command on the Home Assistant machine, trying up to three times.
 
         Every call this file makes goes through here, so a connection that
         drops once, anywhere in a night's run, is tried again before it counts.
+        The one exception is the play call that a tune is timed from: it is
+        sent once, because a second try would start the stream later than the
+        moment the measurement counts from.
         """
         last: RuntimeError | None = None
-        for attempt in range(SSH_TRIES):
+        for attempt in range(tries):
             try:
                 return self._run_once(remote, stdin)
             except RuntimeError as err:
                 last = err
-                if attempt + 1 < SSH_TRIES:
+                if attempt + 1 < tries:
                     time.sleep(SSH_RETRY_AFTER_S)
         assert last is not None  # noqa: S101
         raise last
@@ -144,7 +147,7 @@ class House:
             raise RuntimeError(f"ssh failed: {done.stderr.strip()[:300]}")
         return done.stdout
 
-    def call(self, service: str, data: dict[str, object]) -> None:
+    def call(self, service: str, data: dict[str, object], tries: int = SSH_TRIES) -> None:
         """Call a service, for example media_player.play_media."""
         domain, name = service.split(".", 1)
         remote = (
@@ -152,7 +155,7 @@ class House:
             '-H "Content-Type: application/json" --data-binary @- '
             f"http://supervisor/core/api/services/{shlex.quote(domain)}/{shlex.quote(name)}"
         )
-        self._run(remote, json.dumps(data))
+        self._run(remote, json.dumps(data), tries)
 
     def state(self, entity_id: str) -> dict[str, object]:
         """An entity's state. A failed read is an empty state, never an exception:
@@ -374,6 +377,7 @@ class Spike:
             self.house.call(
                 "music_assistant.play_media",
                 {"entity_id": self.ma_player, "media_id": self.url, "media_type": "radio"},
+                tries=1,  # timed from: never sent twice
             )
             return
         data: dict[str, object] = {
@@ -383,7 +387,7 @@ class Spike:
         }
         if arm == "C":
             data["extra"] = {"bypass_proxy": True}
-        self.house.call("media_player.play_media", data)
+        self.house.call("media_player.play_media", data, tries=1)  # timed from: never sent twice
 
     def stop(self, arm: str) -> None:
         self.house.call("media_player.media_stop", {"entity_id": self.player(arm)})
