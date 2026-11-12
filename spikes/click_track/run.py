@@ -71,6 +71,8 @@ REST_S = 6  # quiet between tunes, so one tune's tail is not the next one's star
 TUNES = 20
 SOAK_S = 2 * 3600
 SOAK_SAMPLE_EVERY_S = 300
+SSH_TRIES = 3
+SSH_RETRY_AFTER_S = 5
 QUIET_BEFORE_S = 600  # the house rule: nothing audible within ten minutes of real use
 PASS_WITHIN_S = 1.0
 PASS_AT_LEAST = 18
@@ -107,6 +109,23 @@ class House:
         self.dry_run = dry_run
 
     def _run(self, remote: str, stdin: str = "") -> str:
+        """Run a command on the Home Assistant machine, trying up to three times.
+
+        Every call this file makes goes through here, so a connection that
+        drops once, anywhere in a night's run, is tried again before it counts.
+        """
+        last: RuntimeError | None = None
+        for attempt in range(SSH_TRIES):
+            try:
+                return self._run_once(remote, stdin)
+            except RuntimeError as err:
+                last = err
+                if attempt + 1 < SSH_TRIES:
+                    time.sleep(SSH_RETRY_AFTER_S)
+        assert last is not None  # noqa: S101
+        raise last
+
+    def _run_once(self, remote: str, stdin: str = "") -> str:
         if self.dry_run:
             print(f"  [dry run] ssh: {remote[:100]}")
             return ""
@@ -152,8 +171,11 @@ class House:
     def clock(self) -> float | None:
         """That machine's clock, as epoch seconds, read as near to now as ssh allows."""
         # Python, not date: that machine's date prints whole seconds only.
-        out = self._run('python3 -c "import time; print(time.time())"')
-        return float(out) if out.strip() else None
+        try:
+            out = self._run('python3 -c "import time; print(time.time())"')
+            return float(out) if out.strip() else None
+        except (RuntimeError, ValueError):
+            return None  # the offset is simply missing from that row
 
     def seconds_since_last_use(self, log_path: str) -> float | None:
         """How long ago the voice assistant was last really used, from its run log."""
@@ -168,7 +190,12 @@ class House:
 
     def can_fetch(self, url: str) -> bool:
         """Whether that machine can reach the click server on this one."""
-        out = self._run(f"curl -sS -m 5 -o /dev/null -w '%{{http_code}}' -I {shlex.quote(url)}")
+        try:
+            out = self._run(
+                f"curl -sS -m 5 -o /dev/null -w '%{{http_code}}' -I {shlex.quote(url)}"
+            )
+        except RuntimeError:
+            return False
         return out.strip() == "200"
 
 
@@ -437,7 +464,11 @@ class Spike:
             row["reported_position_s"] = attributes.get("media_position")
             row["reported_at"] = attributes.get("media_position_updated_at")
         if recording is not None:
-            recording.finish()
+            try:
+                recording.finish()
+            except RuntimeError as err:
+                row["error"] = str(err)[:200]
+                recording = None
         else:
             self.wait(TUNE_S / 2)  # a silent tune lasts as long as an audible one
         with contextlib.suppress(RuntimeError):
@@ -452,14 +483,21 @@ class Spike:
 
     def arm(self, arm: str, tunes: int, silent: bool) -> list[dict[str, object]]:
         print(f"arm {arm}: {tunes} tunes, {'silent' if silent else 'audible'}")
-        self.preflight(audible=not silent)
+        self.preflight(audible=not silent)  # a refusal here does end the run
         self.record_result(self.clocks())
-        rows = []
-        with self.volume_set(arm, 0.0 if silent else self.volume):
-            for number in range(1, tunes + 1):
-                row = self.tune(arm, number, silent)
-                self.record_result(row)
-                rows.append(row)
+        rows: list[dict[str, object]] = []
+        try:
+            with self.volume_set(arm, 0.0 if silent else self.volume):
+                for number in range(1, tunes + 1):
+                    row = self.tune(arm, number, silent)
+                    self.record_result(row)
+                    rows.append(row)
+        except RuntimeError as err:
+            # The house could not be reached even after retries: this pass is
+            # cut short and recorded, and the run goes on to the next one.
+            self.record_result(
+                {"kind": "pass cut short", "arm": arm, "silent": silent, "error": str(err)[:200]}
+            )
         if not silent:
             self.record_result(verdict(arm, rows))
         return rows
@@ -470,6 +508,19 @@ class Spike:
         self.preflight(audible=True)
         self.record_result(self.clocks())
         delays: list[float] = []
+        try:
+            self._soak(arm, seconds, delays)
+        except RuntimeError as err:
+            self.record_result({"kind": "soak cut short", "arm": arm, "error": str(err)[:200]})
+        if delays:
+            drift = max(delays) - min(delays)
+            self.record_result(
+                {"kind": "soak verdict", "arm": arm, "samples": len(delays),
+                 "delay_first_s": delays[0], "delay_last_s": delays[-1],
+                 "drift_s": round(drift, 3), "passes": drift <= PASS_WITHIN_S}
+            )  # fmt: skip
+
+    def _soak(self, arm: str, seconds: int, delays: list[float]) -> None:
         with self.volume_set(arm, self.volume):
             asked_at = time.time()
             try:
@@ -497,14 +548,12 @@ class Spike:
                      "player_state": state, **row}
                 )  # fmt: skip
                 if isinstance(row.get("delay_s"), float):
-                    delays.append(float(row["delay_s"]))  # type: ignore[arg-type]
-        if delays:
-            drift = max(delays) - min(delays)
-            self.record_result(
-                {"kind": "soak verdict", "arm": arm, "samples": len(delays),
-                 "delay_first_s": delays[0], "delay_last_s": delays[-1],
-                 "drift_s": round(drift, 3), "passes": drift <= PASS_WITHIN_S}
-            )  # fmt: skip
+                    delay = float(row["delay_s"])  # type: ignore[arg-type]
+                    # Read as a remainder of ten seconds, so 9.98 and 0.02 are
+                    # 0.04 apart: place each sample next to the first one.
+                    if delays:
+                        delay = delays[0] + ((delay - delays[0] + 5) % 10 - 5)
+                    delays.append(round(delay, 3))
 
 
 def verdict(arm: str, rows: list[dict[str, object]]) -> dict[str, object]:
