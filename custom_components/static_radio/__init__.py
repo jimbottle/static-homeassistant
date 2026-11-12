@@ -29,7 +29,7 @@ from .schedule import parse_schedule
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
 
-PLATFORMS = [Platform.SENSOR]
+PLATFORMS = [Platform.SELECT, Platform.SENSOR]
 
 # Set up from the UI only; there is nothing to put in configuration.yaml.
 CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)

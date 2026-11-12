@@ -33,6 +33,7 @@ INTENT_NAMES = {
     "StaticPrevious",
     "StaticWhatsOn",
     "StaticSupportLink",
+    "StaticSendSupportLink",
 }
 
 
@@ -81,7 +82,17 @@ def _match(pack: hassil.Intents, said: str) -> tuple[str, dict[str, Any]] | None
         ("What show is this on Static?", "StaticWhatsOn", {}),
         ("What's on Static News?", "StaticWhatsOn", {"station": "News"}),
         ("what is playing on the nature station on static", "StaticWhatsOn", {"station": "Nature"}),
-        ("Send me the Static support link.", "StaticSupportLink", {}),
+        ("Send me the Static support link.", "StaticSendSupportLink", {}),
+        (
+            "send the static news support link to my phone",
+            "StaticSendSupportLink",
+            {"station": "News"},
+        ),
+        (
+            "Text me the support link for Static Sleep.",
+            "StaticSendSupportLink",
+            {"station": "Sleep"},
+        ),
         ("What's the Static support link?", "StaticSupportLink", {}),
         ("give me the support link for static", "StaticSupportLink", {}),
         ("What's the support link for Static News?", "StaticSupportLink", {"station": "News"}),

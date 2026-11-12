@@ -1,13 +1,17 @@
 """What a voice assistant can answer about Static: what is on, and the Support link.
 
-Two intents, both read-only and neither touching audio:
+Three intents, none touching audio:
 
 - StaticWhatsOn says the station, the show and the episode, and mentions that
   the show has a Support link when it does.
 - StaticSupportLink gives the show's Support link: spoken in a form that can
   be said aloud, and attached in full for an assistant that shows text.
 
-Both also return the episode's page and the Support link as whole addresses in
+- StaticSendSupportLink sends that link to the phone chosen on the Configure
+  screen, as a notification that opens the show's Support page, and says so.
+  With no phone chosen it reads the link out instead.
+
+All also return the episode's page and the Support link as whole addresses in
 the response's slots (episode_url, support_url). That is the part of a reply
 an assistant with a language model receives, so it can pass on the real link
 and not the shortened one that is spoken.
@@ -31,7 +35,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import intent
 
-from .const import DOMAIN
+from .const import CONF_NOTIFY_SERVICE, DOMAIN
 from .coordinator import StaticCoordinator
 from .feed import support_links
 from .schedule import Episode, Station
@@ -39,6 +43,7 @@ from .tuner import find_station, unknown_station_reply
 
 INTENT_WHATS_ON = "StaticWhatsOn"
 INTENT_SUPPORT_LINK = "StaticSupportLink"
+INTENT_SEND_SUPPORT_LINK = "StaticSendSupportLink"
 
 SLOT_STATION = "station"
 _SCHEMES = ("https://", "http://")
@@ -49,6 +54,7 @@ def async_setup_intents(hass: HomeAssistant) -> None:
     """Register the intents, once, when the integration is first loaded."""
     intent.async_register(hass, WhatsOnHandler())
     intent.async_register(hass, SupportLinkHandler())
+    intent.async_register(hass, SendSupportLinkHandler())
 
 
 def spoken_link(url: str) -> str:
@@ -190,3 +196,54 @@ class SupportLinkHandler(_StaticHandler):
         # The whole address, for an assistant that shows text or passes it on.
         response.async_set_card("Support", on_air.support_url)
         return response
+
+
+class SendSupportLinkHandler(_StaticHandler):
+    """Sends the Support link of the show on a station to the listener's phone."""
+
+    intent_type = INTENT_SEND_SUPPORT_LINK
+    description = (
+        "Sends the Support link for the show playing right now on a Static Radio "
+        "station to the listener's phone as a notification. Give the station's name. "
+        "Use this only when the listener asks for the link to be sent."
+    )
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        on_air = await self._on_air(intent_obj)
+        if isinstance(on_air, str):
+            return self._reply(intent_obj, on_air)
+        name = on_air.station.display_name
+        if on_air.episode.is_bulletin:
+            return self._reply(
+                intent_obj,
+                f"Static {name} is playing a community bulletin, which has no Support link.",
+                on_air,
+            )
+        show = _plain(on_air.episode.feed_title)
+        link = on_air.support_url
+        if link is None:
+            return self._reply(intent_obj, f"{show} has no Support link.", on_air)
+
+        hass = intent_obj.hass
+        entry = hass.config_entries.async_loaded_entries(DOMAIN)[0]
+        phone = entry.options.get(CONF_NOTIFY_SERVICE)
+        if not phone or not hass.services.has_service("notify", phone):
+            return self._reply(
+                intent_obj,
+                f"No phone is set up for Static links, but you can support {show} "
+                f"at {spoken_link(link)}.",
+                on_air,
+            )
+        await hass.services.async_call(
+            "notify",
+            phone,
+            {
+                "title": f"Support {show}",
+                "message": f"Support: {link}",
+                # Tapping the notification opens the show's Support page, on
+                # Android (clickAction) and on iOS (url).
+                "data": {"clickAction": link, "url": link},
+            },
+            blocking=True,
+        )
+        return self._reply(intent_obj, f"I sent the Support link for {show} to your phone.", on_air)
