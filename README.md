@@ -61,6 +61,11 @@ Nothing has been released. Releases will be `vX.Y.Z` tags cut with
 `scripts/release.sh`, with a changelog generated from the commit history and a zip of the
 integration, built by `scripts/dist.sh`, attached to each one.
 
+## License
+
+MIT, see [LICENSE](LICENSE). The license covers this repo's code. It does not cover
+Static's name, logo, schedule or the shows.
+
 ## Credit
 
 Static Radio is made by the people at [staticradio.app](https://staticradio.app). The
