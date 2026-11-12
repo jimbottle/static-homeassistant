@@ -29,6 +29,7 @@ from .api import SCHEDULE_MIN_INTERVAL_S, Fetch, Response, ScheduleClient
 from .const import DOMAIN
 from .schedule import Live, Schedule, ScheduleError, parse_schedule
 from .schedule import live as live_at
+from .support import has_support_urls
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -73,6 +74,9 @@ class StaticCoordinator(DataUpdateCoordinator[Schedule]):
         )
         self._client = client
         self._parsed_from: dict[str, Any] | None = None
+        # Whether this schedule carries Support links itself. When it does
+        # not, support.py reads each show's link from its feed instead.
+        self.schedule_has_links = False
         self._cancel_boundary: CALLBACK_TYPE | None = None
 
     async def _async_update_data(self) -> Schedule:
@@ -86,6 +90,7 @@ class StaticCoordinator(DataUpdateCoordinator[Schedule]):
         except ScheduleError as err:
             raise UpdateFailed(f"Static's schedule could not be used: {err}") from err
         self._parsed_from = raw
+        self.schedule_has_links = has_support_urls(raw)
         return schedule
 
     def live(self, station_id: str, at_ms: int | None = None) -> Live | None:

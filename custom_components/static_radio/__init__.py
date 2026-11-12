@@ -13,6 +13,7 @@ from __future__ import annotations
 import time
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
@@ -23,6 +24,8 @@ from .coordinator import StaticCoordinator, session_fetch
 from .schedule import parse_schedule
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
+
+PLATFORMS = [Platform.SENSOR]
 
 
 async def _schedule_client(hass: HomeAssistant) -> ScheduleClient:
@@ -54,10 +57,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> bo
     coordinator = StaticCoordinator(hass, entry, await _schedule_client(hass))
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> bool:
     """Stop the timers. The schedule client stays, with its memory of the floor."""
-    await entry.runtime_data.async_shutdown()
-    return True
+    unloaded: bool = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    if unloaded:
+        await entry.runtime_data.async_shutdown()
+    return unloaded

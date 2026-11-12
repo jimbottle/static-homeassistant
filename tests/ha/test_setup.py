@@ -8,8 +8,10 @@ floor through reloads and failed setups, and If-None-Match.
 from __future__ import annotations
 
 import json
+from collections.abc import Iterator
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
@@ -34,6 +36,13 @@ STATION = "nature_01"
 
 # An instant inside the saved schedule's broadcast day.
 FIXTURE_NOW = datetime(2026, 11, 11, 18, 0, 0, tzinfo=UTC)
+
+
+@pytest.fixture(autouse=True)
+def _no_entities() -> Iterator[None]:
+    """These tests are about the schedule's upkeep, so nothing listens unless a test does."""
+    with patch("custom_components.static_radio.PLATFORMS", []):
+        yield
 
 
 @pytest.fixture(autouse=True)
