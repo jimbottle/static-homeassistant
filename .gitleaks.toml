@@ -1,0 +1,14 @@
+# Based on the Raylytics VC Standard's templates/gitleaks.toml (STANDARD.md §9,
+# §12). The template's allowlist for a Chrome extension key and a bundled
+# analytics secret is left out: neither exists in this repo, and an allowlist
+# pattern with nothing to match only widens what a real leak could hide behind.
+title = "static-homeassistant gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Test fixtures: saved public schedule files and generated audio"
+paths = [
+  '''(^|/)tests/fixtures/''',
+]

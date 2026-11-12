@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "static-radio": {
+      "type": "http",
+      "url": "https://staticradio.app/mcp"
+    }
+  }
+}

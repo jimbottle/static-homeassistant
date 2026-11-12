@@ -1,0 +1,36 @@
+# Repo-local roborev config. Keep it to the keys this repo means to override:
+# `roborev config set` writes every key with an empty value, and an empty
+# value here shadows the global config instead of inheriting from it.
+
+review_min_severity = 'medium'
+
+review_guidelines = '''
+This is an unofficial Home Assistant integration for Static Radio
+(staticradio.app). Static allowed it on conditions, and its developer guide
+sets ground rules. A diff cannot show them, so flag any of these:
+
+- A request to a Static host or path other than schedule-wear.json,
+  /api/counts, and the audio and art addresses the schedule itself lists.
+  Anything other than GET. The one exception is .mcp.json, which points coding
+  agents at the read-only MCP server Static's developer guide publishes for
+  that purpose; flag any use of it from the integration's own code.
+- Audio written to disk or cached anywhere.
+- Seeking, skipping or episode selection offered to a listener. A bulletin
+  skipped, muted or replaced.
+- An outbound request without the HomeAssistant-Static/<version> User-Agent.
+- Timing taken from startOffsetSeconds, which leaves out the 1.5 s gaps.
+- A request to a redirect target in place of the schedule's audioUrl.
+- The schedule fetched more than once per 15 minutes or without
+  If-None-Match; listener counts more than once a minute; a show's feed more
+  than once a day.
+- Blocking I/O on Home Assistant's event loop.
+- A sentence list without the static_ prefix, or a wildcard station name.
+- A spoken reply that ends in a question mark.
+- A house-specific entity id, device id, address, hostname or SSH alias in a
+  tracked file. A household transcript in a tracked file.
+- A name from Static's team, or text from correspondence with Static, in a
+  tracked file.
+- The word "unofficial" removed from the README title or the integration name.
+- Code that plays or converts Static's audio. (This line comes out once the
+  owner confirms Static's answer on the audio path.)
+'''
