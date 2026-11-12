@@ -6,7 +6,8 @@
 #    React Native derived copies). 3. Prepends the release to CHANGELOG.md with
 #    git-cliff. 4. Commits chore(release): vX.Y.Z, creates a signed annotated
 #    tag, pushes both. release.yml then creates the GitHub Release.
-# Stacks: python (pyproject.toml), extension (manifest.json), react-native
+# Stacks: ha-integration (custom_components/<domain>/manifest.json, this repo),
+# python (pyproject.toml), extension (manifest.json), react-native
 # (package.json + android/ + ios/), js (package.json), android
 # (app/build.gradle(.kts)), go (tag only; goreleaser builds).
 set -euo pipefail
@@ -30,8 +31,15 @@ fi
 if [ -f CHANGELOG.md ] && grep -q "^## \[$VERSION\]" CHANGELOG.md; then die "CHANGELOG.md already has an entry for $VERSION"; fi
 
 # ---- 2. bump ----------------------------------------------------------------
+# This repo is a Home Assistant integration. Its version lives in the
+# integration's manifest.json, which Home Assistant and HACS read and which the
+# User-Agent sent to Static is built from. pyproject.toml exists for tooling
+# only and its version is never bumped.
+ha_manifest() { ls custom_components/*/manifest.json 2>/dev/null | head -1; }
+
 detect_stack() {
-  if [ -f go.mod ]; then echo go
+  if [ -d custom_components ] || grep -qs '^name = "static-homeassistant"' pyproject.toml; then echo ha-integration
+  elif [ -f go.mod ]; then echo go
   elif [ -f pyproject.toml ]; then echo python
   elif [ -f manifest.json ] && [ -f package.json ]; then echo extension
   elif [ -f manifest.json ]; then echo extension
@@ -111,13 +119,18 @@ bump_android() {
     [ -f VERSION ] && { printf '%s\n' "$VERSION" > VERSION; echo "VERSION: $VERSION"; }
   fi
 }
+bump_ha_integration() {
+  local m; m="$(ha_manifest)"
+  [ -n "$m" ] || die "no custom_components/<domain>/manifest.json yet: there is nothing to release"
+  set_json_version "$m" "$VERSION"; echo "$m: version $VERSION"
+}
 bump_go() { echo "go: the tag is the version; nothing to bump"; }
 
 STACK="$(detect_stack)"
 echo "== release $TAG ($STACK)"
 case "$STACK" in
   python) bump_python ;; extension) bump_extension ;; react-native) bump_react_native ;;
-  js) bump_js ;; android) bump_android ;; go) bump_go ;;
+  js) bump_js ;; android) bump_android ;; go) bump_go ;; ha-integration) bump_ha_integration ;;
   *) die "no version source-of-truth file found (§7)" ;;
 esac
 

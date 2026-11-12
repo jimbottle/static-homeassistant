@@ -11,10 +11,10 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."
 echo "python: $(uv run --frozen python -V 2>&1)"
 
 fail=""
-step() { echo "== $*"; "$@" || fail="$fail $1:$2"; }
-step uv run --frozen ruff check .
-step uv run --frozen ruff format --check .
-step uv run --frozen mypy .
+step() { local name="$1"; shift; echo "== $*"; "$@" || fail="$fail $name"; }
+step ruff-check uv run --frozen ruff check .
+step ruff-format uv run --frozen ruff format --check .
+step mypy uv run --frozen mypy .
 
 echo "== uv run pytest -q"
 out="$(uv run --frozen pytest -q 2>&1)"; rc=$?
