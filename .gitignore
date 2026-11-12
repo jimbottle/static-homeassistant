@@ -12,3 +12,19 @@
 .claude/state/
 .claude/settings.local.json
 /static-radio-home-assistant-plan.md
+
+# Raylytics VC Standard
+.env
+.env.*
+!.env.example
+.DS_Store
+.idea/
+.vscode/
+*.log
+QUEUE.md
+HANDOFF*
+__pycache__/
+.venv/
+dist/
+.ruff_cache/
+.pytest_cache/
