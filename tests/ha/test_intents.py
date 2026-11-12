@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 from freezegun.api import FrozenDateTimeFactory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import intent
+from homeassistant.helpers import intent, llm
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
@@ -110,6 +110,13 @@ async def test_whats_on_names_the_show_and_mentions_its_support_link(
     assert episode.feed_title.rstrip(".?! ") in said
     assert said.endswith(", and the show has a Support link.")
 
+    # Now-playing for a text or language-model assistant: both links, together.
+    for_a_model = llm.IntentResponseDict(await _ask(hass, INTENT_WHATS_ON, name))
+    assert for_a_model["speech_slots"] == {
+        "episode_url": episode.episode_url,
+        "support_url": episode.support_url,
+    }
+
 
 async def test_whats_on_without_a_support_link_does_not_mention_one(
     hass: HomeAssistant,
@@ -147,6 +154,9 @@ async def test_a_bulletin_is_called_a_bulletin_and_has_no_support_link(
         f"Static {name} is playing a community bulletin, which has no Support link."
     )
     assert response.card == {}
+    assert "support_url" not in llm.IntentResponseDict(response).get("speech_slots", {})
+    whats_on = llm.IntentResponseDict(await _ask(hass, INTENT_WHATS_ON, name))
+    assert "support_url" not in whats_on.get("speech_slots", {})
 
 
 async def test_the_support_link_is_said_and_attached_in_full(
@@ -169,6 +179,13 @@ async def test_the_support_link_is_said_and_attached_in_full(
     assert spoken_link(episode.support_url) in said
     assert "https://" not in said
     assert response.card["simple"] == {"title": "Support", "content": episode.support_url}
+
+    # An assistant with a language model is given this, without the card. The
+    # whole address has to be in it, not only the shortened one that is spoken.
+    for_a_model = llm.IntentResponseDict(response)
+    assert "card" not in for_a_model
+    assert for_a_model["speech_slots"]["support_url"] == episode.support_url
+    assert for_a_model["speech_slots"]["episode_url"] == episode.episode_url
 
 
 async def test_a_show_without_a_support_page_says_so_and_asks_no_feed(
