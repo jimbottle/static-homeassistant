@@ -110,14 +110,17 @@ class House:
         if self.dry_run:
             print(f"  [dry run] ssh: {remote[:100]}")
             return ""
-        done = subprocess.run(  # noqa: S603
-            ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", self.ssh_host, remote],  # noqa: S607
-            input=stdin,
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
+        try:
+            done = subprocess.run(  # noqa: S603
+                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", self.ssh_host, remote],  # noqa: S607
+                input=stdin,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                check=False,
+            )
+        except subprocess.TimeoutExpired as err:
+            raise RuntimeError("ssh timed out after 60 s") from err
         if done.returncode != 0:
             raise RuntimeError(f"ssh failed: {done.stderr.strip()[:300]}")
         return done.stdout
@@ -133,12 +136,18 @@ class House:
         self._run(remote, json.dumps(data))
 
     def state(self, entity_id: str) -> dict[str, object]:
+        """An entity's state. A failed read is an empty state, never an exception:
+        one dropped connection must not end a night's run."""
         remote = (
             'curl -sS -f -H "Authorization: Bearer $SUPERVISOR_TOKEN" '
             f"http://supervisor/core/api/states/{shlex.quote(entity_id)}"
         )
-        out = self._run(remote)
-        return json.loads(out) if out else {"state": "unknown", "attributes": {}}
+        empty: dict[str, object] = {"state": "unknown", "attributes": {}}
+        try:
+            out = self._run(remote)
+            return json.loads(out) if out else empty
+        except (RuntimeError, ValueError) as err:
+            return empty | {"error": str(err)[:200]}
 
     def clock(self) -> float | None:
         """That machine's clock, as epoch seconds, read as near to now as ssh allows."""
@@ -148,12 +157,14 @@ class House:
 
     def seconds_since_last_use(self, log_path: str) -> float | None:
         """How long ago the voice assistant was last really used, from its run log."""
-        out = self._run(f"tail -1 {shlex.quote(log_path)}")
         try:
+            out = self._run(f"tail -1 {shlex.quote(log_path)}")
             stamp = datetime.fromisoformat(json.loads(out)["ts"])
-        except (ValueError, KeyError, TypeError):
-            return None
-        return (datetime.now(UTC) - stamp).total_seconds()
+            if stamp.tzinfo is None:
+                stamp = stamp.replace(tzinfo=UTC)
+            return (datetime.now(UTC) - stamp).total_seconds()
+        except (RuntimeError, ValueError, KeyError, TypeError):
+            return None  # the caller refuses to make a sound when it cannot tell
 
     def can_fetch(self, url: str) -> bool:
         """Whether that machine can reach the click server on this one."""
@@ -224,8 +235,12 @@ def measure(samples: array[int], started_at: float, asked_at: float) -> dict[str
     """How late the clicks were heard, from one recording of one tune.
 
     The stream is served with no lead, so a click can only be heard late,
-    never early. The ten-second beeps give the delay to within ten seconds;
-    the time since the play call rules out the rest.
+    never early. The ten-second beeps give the delay as a remainder of ten
+    seconds. The whole tens come from the play call: the stream cannot start
+    before it was asked for, so the delay is never more than the time from the
+    ask to the first sound, and the largest candidate that fits is taken. A
+    start so slow that this guess could be a whole ten out shows up as a first
+    sound many seconds after the ask, which is recorded beside it.
     """
     peak = max((abs(s) for s in samples), default=0) / 32768
     if peak < 0.004:  # noqa: PLR2004 - quieter than this is room noise, not a click
@@ -237,7 +252,10 @@ def measure(samples: array[int], started_at: float, asked_at: float) -> dict[str
     # Only what was heard after the speaker was asked to play belongs to this tune.
     found = [(start, length) for start, length in found if started_at + start >= asked_at]
     rows = analyze.offsets(found, started_at)
-    tens = [o % 10 for kind, _, o in rows if kind in ("ten", "minute")]
+    raw_tens = [o % 10 for kind, _, o in rows if kind in ("ten", "minute")]
+    # Readings either side of a multiple of ten (9.95 and 0.05) are the same
+    # delay: bring them all next to the first one before taking a middle.
+    tens = [raw_tens[0] + ((o - raw_tens[0] + 5) % 10 - 5) for o in raw_tens] if raw_tens else []
     ticks = [o for kind, _, o in rows if kind == "click"]
     result: dict[str, object] = {
         "heard": bool(rows),
@@ -249,10 +267,14 @@ def measure(samples: array[int], started_at: float, asked_at: float) -> dict[str
         return result | {"note": "no ten-second beep heard"}
     whole = statistics.median(tens)
     near = [o + round(whole - o) for o in ticks] + tens
+    first_sound = rows[0][1] - asked_at
+    middle = statistics.median(near) % 10
+    # The largest delay of the form middle + 10k that the play call allows.
+    lift = middle + 10 * max(0, int((first_sound + 0.25 - middle) // 10)) - statistics.median(near)
     return result | {
-        "delay_s": round(statistics.median(near), 3),
-        "delay_min_s": round(min(near), 3),
-        "delay_max_s": round(max(near), 3),
+        "delay_s": round(statistics.median(near) + lift, 3),
+        "delay_min_s": round(min(near) + lift, 3),
+        "delay_max_s": round(max(near) + lift, 3),
         "clicks": len(ticks),
         "beeps": len(tens),
     }
@@ -274,6 +296,48 @@ class Spike:
         self.volume = float(os.environ.get("SPIKE_VOLUME", "0.25"))
         self.results = OUT / "results.jsonl"
         OUT.mkdir(exist_ok=True)
+        # The household's own volume, read once before anything is changed and
+        # put back once at the very end. Either entity may report it; an idle
+        # Music Assistant player often does not.
+        self.volume_before: float | None = None
+        # Which players this run has commanded. The speaker's own ESPHome
+        # player is only ever touched by arms B and C, restore included.
+        self.touched: set[str] = set()
+
+    def remember_volume(self) -> None:
+        """Read the speaker's volume before the first pass, or refuse to start."""
+        if self.dry_run:
+            return
+        for entity in (self.esphome_player, self.ma_player):
+            attributes = self.house.state(entity).get("attributes", {})
+            level = attributes.get("volume_level") if isinstance(attributes, dict) else None
+            if isinstance(level, int | float):
+                self.volume_before = float(level)
+                self.record_result({"kind": "volume before", "level": level, "from": "speaker"})
+                return
+        raise SystemExit(
+            "run.py: could not read the speaker's volume, so it could not be put back; not starting"
+        )
+
+    def restore_volume(self) -> None:
+        """Put the household's volume back on each player this run commanded. Three tries each."""
+        if self.volume_before is None:
+            return
+        for entity in sorted(self.touched):
+            for _attempt in range(3):
+                try:
+                    self.house.call(
+                        "media_player.volume_set",
+                        {"entity_id": entity, "volume_level": self.volume_before},
+                    )
+                    break
+                except RuntimeError:
+                    time.sleep(5)
+        after = self.house.state(self.esphome_player).get("attributes", {})
+        level = after.get("volume_level") if isinstance(after, dict) else None
+        self.record_result(
+            {"kind": "volume after", "level": level, "wanted": self.volume_before}
+        )
 
     def player(self, arm: str) -> str:
         return self.ma_player if arm == "A" else self.esphome_player
@@ -305,20 +369,20 @@ class Spike:
 
     @contextlib.contextmanager
     def volume_set(self, arm: str, level: float):  # type: ignore[no-untyped-def]
-        """Set the speaker's volume for a pass and put it back afterwards, whatever happens."""
-        entity = self.player(arm)
-        before = self.house.state(entity).get("attributes", {})
-        was = before.get("volume_level") if isinstance(before, dict) else None
-        self.house.call("media_player.volume_set", {"entity_id": entity, "volume_level": level})
+        """Set the speaker's volume for a pass, and stop it playing when the pass ends.
+
+        The household's own volume is put back once, at the end of the whole
+        run, by restore_volume().
+        """
+        self.touched.add(self.player(arm))
+        self.house.call(
+            "media_player.volume_set", {"entity_id": self.player(arm), "volume_level": level}
+        )
         try:
             yield
         finally:
             with contextlib.suppress(Exception):
                 self.stop(arm)
-            if isinstance(was, int | float):
-                self.house.call(
-                    "media_player.volume_set", {"entity_id": entity, "volume_level": was}
-                )
 
     def clocks(self) -> dict[str, object]:
         """Both clocks against true time, and against each other."""
@@ -344,7 +408,12 @@ class Spike:
         log_path = os.environ.get("SPIKE_PIPELINE_LOG")
         if audible and log_path:
             ago = self.house.seconds_since_last_use(log_path)
-            if ago is not None and ago < QUIET_BEFORE_S:
+            if ago is None:
+                raise SystemExit(
+                    "run.py: could not read when the speaker was last used; "
+                    "not making a sound without knowing"
+                )
+            if ago < QUIET_BEFORE_S:
                 raise SystemExit(
                     f"run.py: the speaker was used {ago / 60:.0f} minutes ago; "
                     "wait until ten minutes have passed"
@@ -403,14 +472,25 @@ class Spike:
         delays: list[float] = []
         with self.volume_set(arm, self.volume):
             asked_at = time.time()
-            self.play(arm)
+            try:
+                self.play(arm)
+            except RuntimeError as err:
+                self.record_result({"kind": "soak", "arm": arm, "error": str(err)[:200]})
+                return
             while time.time() - asked_at < seconds:
                 time.sleep(SOAK_SAMPLE_EVERY_S if not self.dry_run else 0)
                 if self.dry_run:
                     break
-                recording = Recording(self.mic, TUNE_S)
-                recording.finish()
-                row = measure(recording.samples, recording.started_at, asked_at)
+                try:
+                    recording = Recording(self.mic, TUNE_S)
+                    recording.finish()
+                except RuntimeError as err:
+                    self.record_result({"kind": "soak", "arm": arm, "error": str(err)[:200]})
+                    continue
+                # A long-running stream has no fresh play call to count tens
+                # from, so its delay is read as a remainder of ten seconds and
+                # only its change over the two hours is judged.
+                row = measure(recording.samples, recording.started_at, recording.started_at)
                 state = self.house.state(self.player(arm)).get("state")
                 self.record_result(
                     {"kind": "soak", "arm": arm, "after_s": round(time.time() - asked_at),
@@ -492,36 +572,45 @@ def main() -> None:
     load_env()
     spike = Spike(args)
     with click_server(args.dry_run):
-        if args.command == "check":
-            spike.preflight(audible=False)
-            spike.record_result(spike.clocks())
-            if not args.dry_run:
-                room = Recording(spike.mic, 3)
-                room.finish()
-                peak = max(abs(s) for s in room.samples) / 32768
-                spike.record_result({"kind": "microphone", "room_peak": round(peak, 4)})
-        elif args.command == "arm":
-            spike.arm(args.arm, args.tunes, args.silent)
-        elif args.command == "soak":
-            spike.soak(args.arm, args.seconds)
-        else:
-            passed: list[tuple[float, str]] = []
-            for letter in args.arms:
-                spike.arm(letter, TUNES, silent=True)
-            for letter in args.arms:
-                rows = spike.arm(letter, TUNES, silent=False)
-                result = verdict(letter, rows)
-                if result["passes"]:
-                    passed.append((float(result["worst_s"]), letter))  # type: ignore[arg-type]
-            # The soak goes to the arm this house will use if it passed, else the steadiest.
-            best = "A" if any(letter == "A" for _, letter in passed) else None
-            if best is None and passed:
-                best = min(passed)[1]
-            if best is None:
-                spike.record_result({"kind": "night", "note": "no arm passed; no soak run"})
-            else:
-                spike.soak(best, SOAK_S)
+        if args.command != "check":
+            spike.remember_volume()
+        try:
+            run_command(spike, args)
+        finally:
+            spike.restore_volume()
     print(f"results: {spike.results}")
+
+
+def run_command(spike: Spike, args: argparse.Namespace) -> None:
+    if args.command == "check":
+        spike.preflight(audible=False)
+        spike.record_result(spike.clocks())
+        if not args.dry_run:
+            room = Recording(spike.mic, 3)
+            room.finish()
+            peak = max(abs(s) for s in room.samples) / 32768
+            spike.record_result({"kind": "microphone", "room_peak": round(peak, 4)})
+    elif args.command == "arm":
+        spike.arm(args.arm, args.tunes, args.silent)
+    elif args.command == "soak":
+        spike.soak(args.arm, args.seconds)
+    else:
+        passed: list[tuple[float, str]] = []
+        for letter in args.arms:
+            spike.arm(letter, TUNES, silent=True)
+        for letter in args.arms:
+            rows = spike.arm(letter, TUNES, silent=False)
+            result = verdict(letter, rows)
+            if result["passes"]:
+                passed.append((float(result["worst_s"]), letter))  # type: ignore[arg-type]
+        # The soak goes to the arm this house will use if it passed, else the steadiest.
+        best = "A" if any(letter == "A" for _, letter in passed) else None
+        if best is None and passed:
+            best = min(passed)[1]
+        if best is None:
+            spike.record_result({"kind": "night", "note": "no arm passed; no soak run"})
+        else:
+            spike.soak(best, SOAK_S)
 
 
 if __name__ == "__main__":
