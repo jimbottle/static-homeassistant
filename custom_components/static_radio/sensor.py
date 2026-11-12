@@ -23,14 +23,14 @@ from typing import Any
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.device_registry import DeviceEntryType, DeviceInfo
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import StaticConfigEntry
-from .const import DOMAIN, STATIC_URL, TITLE
+from .const import DOMAIN
 from .coordinator import StaticCoordinator
 from .counts import CountsCoordinator, counts_client
+from .device import service_device
 from .feed import support_links
 from .schedule import Episode, Station
 from .support import SupportLinks
@@ -71,16 +71,6 @@ async def async_setup_entry(
 
     add_new_stations()
     entry.async_on_unload(coordinator.async_add_listener(add_new_stations))
-
-
-def service_device(entry: StaticConfigEntry) -> DeviceInfo:
-    """The one device every sensor belongs to."""
-    return DeviceInfo(
-        identifiers={(DOMAIN, entry.entry_id)},
-        name=TITLE,
-        entry_type=DeviceEntryType.SERVICE,
-        configuration_url=STATIC_URL,
-    )
 
 
 class NowPlayingSensor(CoordinatorEntity[StaticCoordinator], SensorEntity):

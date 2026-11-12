@@ -15,5 +15,32 @@
       "title": "Static's schedule is in a newer format",
       "description": "Static now publishes its schedule in format {found}, and this integration was written for format {expected}. Stations may keep working, but something may be shown or timed wrongly. Check for an update to this integration. The notice clears itself once the formats match."
     }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Static Radio (unofficial)",
+        "description": "Choose the speakers that can be tuned to Static, and the phone a show's Support link is sent to when someone asks for it.",
+        "data": {
+          "speakers": "Speakers",
+          "notify_service": "Send Support links to"
+        },
+        "data_description": {
+          "speakers": "Each speaker chosen gets a station selector.",
+          "notify_service": "A phone with the Home Assistant app. Choose none to have the link read out and not sent."
+        }
+      },
+      "leads": {
+        "title": "Lead for each speaker",
+        "description": "How far ahead of the live moment each speaker's stream starts, in milliseconds, to cover the time the speaker takes to make sound. 1000 is a good start; raise it if a speaker is behind other listeners, lower it if it is ahead."
+      }
+    }
+  },
+  "selector": {
+    "notify_service": {
+      "options": {
+        "none": "No phone"
+      }
+    }
   }
 }
