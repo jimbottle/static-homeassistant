@@ -1,7 +1,7 @@
-"""The media browser lists the stations by name, and plays nothing yet.
+"""The media browser: stations by name, and inside each, what is on with its links.
 
-It does not say what is on: an entry has nowhere to put the episode and
-Support links that Static asks to see beside now-playing.
+Now-playing never appears without the episode and Support addresses beside
+it, a bulletin never has a Support entry, and nothing can be played yet.
 """
 
 from __future__ import annotations
@@ -21,9 +21,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.static_radio.api import SCHEDULE_URL, Response
-from custom_components.static_radio.schedule import live, parse_schedule
+from custom_components.static_radio.schedule import Episode, live, parse_schedule
 
 FIXTURE_NOW = datetime(2026, 11, 11, 18, 0, 0, tzinfo=UTC)
+LINKS_NOW = datetime(2026, 11, 12, 18, 0, 0, tzinfo=UTC)  # inside the 2026-11-12 schedule's day
 ROOT = "media-source://static_radio"
 
 
@@ -73,8 +74,8 @@ async def test_the_browser_lists_every_station_by_name_and_not_what_is_on(
         assert child.title == station.display_name
         # Now-playing without its links is not shown: no show, no episode, no art.
         assert child.thumbnail is None
-        # Live radio: nothing to open, and nothing to play until the stream exists.
-        assert child.can_expand is False
+        # It opens to show what is on; nothing plays until the stream exists.
+        assert child.can_expand is True
         assert child.can_play is False
 
 
@@ -89,26 +90,111 @@ async def test_no_audio_address_is_handed_out(
     with pytest.raises(media_source.Unresolvable):
         await media_source.async_resolve_media(hass, f"{ROOT}/nature_01", None)
 
-    # And nothing in the listing is an episode's audio address.
+    # And nothing in the listing, or inside any station, is an episode's audio address.
     root = await media_source.async_browse_media(hass, ROOT)
+    assert root.children is not None
+    inside = [
+        (await media_source.async_browse_media(hass, child.media_content_id)).as_dict()
+        for child in root.children
+    ]
     audio = {
         e["audioUrl"]
         for c in json.loads(schedule_text)["categories"].values()
         for e in c["episodes"]
     }
-    listing = json.dumps(root.as_dict())
+    listing = json.dumps([root.as_dict(), inside])
     assert not any(url in listing for url in audio)
 
 
-async def test_a_station_has_nothing_inside_it(
+def _find(text: str, kind: str) -> tuple[datetime, str, Episode]:
+    """An instant and a station id then on a show with a link, without one, or a bulletin."""
+    schedule = parse_schedule(json.loads(text))
+    for minute in range(0, 20 * 60, 3):
+        when = LINKS_NOW + timedelta(minutes=minute)
+        for station in schedule.stations:
+            found = live(schedule, station, int(when.timestamp() * 1000))
+            assert found is not None
+            episode = found.episode
+            is_kind = {
+                "link": bool(episode.support_url) and not episode.is_bulletin,
+                "no link": not episode.support_url and not episode.is_bulletin,
+                "bulletin": episode.is_bulletin,
+            }[kind]
+            if is_kind:
+                return when, station.station_id, episode
+    raise AssertionError(f"the saved schedule never has: {kind}")
+
+
+async def test_a_station_opens_to_what_is_on_with_both_links_beneath(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    when, station_id, episode = _find(schedule_text_with_links, "link")
+    freezer.move_to(when)
+    await _set_up(hass, entry, aioclient_mock, schedule_text_with_links)
+
+    station = await media_source.async_browse_media(hass, f"{ROOT}/{station_id}")
+
+    assert episode.feed_title in station.title
+    assert episode.title in station.title
+    assert station.thumbnail == episode.image_url
+    assert station.can_play is False
+    assert station.children is not None
+    assert [child.title for child in station.children] == [
+        f"Episode page: {episode.episode_url}",
+        f"Support: {episode.support_url}",
+    ]
+    assert all(not c.can_play and not c.can_expand for c in station.children)
+
+
+async def test_a_show_without_a_support_page_has_no_support_entry(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    when, station_id, _episode = _find(schedule_text_with_links, "no link")
+    freezer.move_to(when)
+    await _set_up(hass, entry, aioclient_mock, schedule_text_with_links)
+
+    station = await media_source.async_browse_media(hass, f"{ROOT}/{station_id}")
+    assert station.children is not None
+    assert not any(child.title.startswith("Support") for child in station.children)
+
+
+async def test_a_bulletin_is_named_as_one_and_never_has_a_support_entry(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    freezer: FrozenDateTimeFactory,
+) -> None:
+    when, station_id, episode = _find(schedule_text_with_links, "bulletin")
+    freezer.move_to(when)
+    await _set_up(hass, entry, aioclient_mock, schedule_text_with_links)
+
+    station = await media_source.async_browse_media(hass, f"{ROOT}/{station_id}")
+    assert station.title.endswith("· Community bulletin")
+    assert station.children is not None
+    assert not any(child.title.startswith("Support") for child in station.children)
+    if episode.episode_url:
+        assert station.children[0].title == f"Episode page: {episode.episode_url}"
+
+
+async def test_only_stations_on_the_dial_open(
     hass: HomeAssistant,
     entry: MockConfigEntry,
     aioclient_mock: AiohttpClientMocker,
     schedule_text: str,
 ) -> None:
     await _set_up(hass, entry, aioclient_mock, schedule_text)
-    with pytest.raises(BrowseError):
-        await media_source.async_browse_media(hass, f"{ROOT}/nature_01")
+    for identifier in ("jazz_01", "nature_01/support", "nature_01/episodes"):
+        with pytest.raises(BrowseError):
+            await media_source.async_browse_media(hass, f"{ROOT}/{identifier}")
 
 
 async def test_another_days_schedule_lists_no_stations(

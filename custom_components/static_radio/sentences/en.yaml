@@ -14,9 +14,12 @@
 #   Static is live: a listener's usual stop phrase stops it, and playing it
 #   again tunes to the live moment.
 #
-# The station list follows Static's dial as it stood on 2026-11-11, with the
-# spellings a speech recognizer is likely to write. A test compares it with
-# the saved schedule, so a new station on the dial is noticed.
+# The station list is Static's dial as it stood on 2026-11-12, and a station
+# is asked for by Static's own name and no other: no nicknames, no synonyms.
+# The only extra entries are other spellings of the same spoken name, because
+# a speech recognizer writes what it hears ("Sheila Bee" for SHEILA B). Every
+# entry gives back the name exactly as Static writes it. A test compares the
+# list with the saved schedule, so a new station on the dial is noticed.
 language: en
 intents:
   StaticPlay:
@@ -57,14 +60,21 @@ intents:
           - "(what's|what is|whats) <static> playing"
           - "(what's|what is|whats) (this|that) on <static>"
           - "what (show|station) is [this] on <static>"
+          - "(what's|what is|whats) (on|playing on) <static> {static_station:station}"
+          - "(what's|what is|whats) (on|playing on) [the] {static_station:station} station on <static>"
 
-  StaticSendSupportLink:
+  # The show's own Support page. The reply says the link; it is not sent
+  # anywhere yet, so "send me" gets the same spoken answer.
+  StaticSupportLink:
     data:
       - sentences:
-          - "send [me] [the] <static> support link [please]"
-          - "send [me] the support link for <static> [please]"
-          - "send [the] <static> support link to my phone [please]"
+          - "(what's|what is|whats) the <static> support link"
+          - "(what's|what is|whats) the support link for <static> [{static_station:station}]"
+          - "(what's|what is|whats) the <static> {static_station:station} support link"
+          - "(give|tell|send) me the <static> support link"
+          - "(give|tell|send) me the support link for <static> [{static_station:station}]"
           - "how (do|can) I support [this|the] <static> show"
+          - "how (do|can) I support [the show on] <static> {static_station:station}"
 
 expansion_rules:
   # "Static" alone or "Static Radio". Recognizers also write "static's".
@@ -78,17 +88,17 @@ lists:
         out: "Nature"
       - in: "work"
         out: "Work"
-      - in: "(learn|learning)"
+      - in: "learn"
         out: "Learn"
       - in: "news"
         out: "News"
       - in: "weird"
         out: "Weird"
-      - in: "(unite|united)"
+      - in: "unite"
         out: "Unite"
       - in: "make"
         out: "Make"
-      - in: "(sheila b|sheila bee|sheila be|shiela b|sheila)"
+      - in: "(sheila b|sheila bee|sheila be|shiela b)"
         out: "SHEILA B"
       - in: "sleep"
         out: "Sleep"

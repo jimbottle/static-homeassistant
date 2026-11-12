@@ -15,18 +15,30 @@ import time
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
 from .api import ScheduleClient
 from .const import DOMAIN
 from .coordinator import SCHEMA_ISSUE, StaticCoordinator, session_fetch
+from .intents import async_setup_intents
 from .schedule import parse_schedule
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
 
 PLATFORMS = [Platform.SENSOR]
+
+# Set up from the UI only; there is nothing to put in configuration.yaml.
+CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Register what a voice assistant can ask, once for the life of Home Assistant."""
+    async_setup_intents(hass)
+    return True
 
 
 async def _schedule_client(hass: HomeAssistant) -> ScheduleClient:

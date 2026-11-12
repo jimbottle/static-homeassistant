@@ -1,17 +1,23 @@
 """Static's stations in Home Assistant's media browser.
 
 Opening "Static Radio (unofficial)" in the media browser lists the stations in
-dial order, by name. There is nothing below a station: no episode list, since
-Static is live radio and offers no choosing, seeking or skipping.
+dial order, by name. Opening a station shows what is on it right now: the show
+and episode, with the episode's art, and beneath it the address of the
+episode's page and, for a show that has one, of its Support page.
 
-The entries deliberately do not say what is on. Static asks that wherever
-now-playing is shown, the episode link and the show's Support link are shown
-with it, and a media browser entry has a title and a picture but nowhere to
-put a link. What is on, with both links, is on the now-playing sensors.
+Static asks that wherever now-playing is shown, the episode link and the
+show's Support link are shown with it. A media browser entry has a title and
+a picture but cannot be a link, so the two addresses are written out as
+entries of their own, labeled "Episode page" and "Support", right under the
+show they belong to. The list of stations itself says nothing about what is
+on, so now-playing never appears without them. A bulletin has no Support
+entry. The now-playing sensors carry the same two links in a form a dashboard
+can make clickable.
 
-The list is for looking, for now. A station cannot be played from here until
-the station stream exists, so each entry is marked as not playable and
-resolving one is refused. No audio address ever leaves this file.
+There is no episode list: Static is live radio, with no choosing, seeking or
+skipping. And the list is for looking, for now. A station cannot be played
+from here until the station stream exists, so nothing is marked playable and
+resolving anything is refused. No audio address ever leaves this file.
 """
 
 from __future__ import annotations
@@ -29,7 +35,8 @@ from homeassistant.core import HomeAssistant
 
 from .const import DOMAIN, TITLE
 from .coordinator import StaticCoordinator
-from .schedule import Station
+from .feed import support_links
+from .schedule import Episode, Station
 
 
 async def async_get_media_source(hass: HomeAssistant) -> StaticMediaSource:
@@ -38,7 +45,7 @@ async def async_get_media_source(hass: HomeAssistant) -> StaticMediaSource:
 
 
 class StaticMediaSource(MediaSource):
-    """The stations, by name."""
+    """The stations by name, and inside each, what is on with its links."""
 
     name = TITLE
 
@@ -58,15 +65,16 @@ class StaticMediaSource(MediaSource):
         raise Unresolvable("Static Radio stations cannot be played from the media browser yet")
 
     async def async_browse_media(self, item: MediaSourceItem) -> BrowseMediaSource:
-        """The list of stations. A station itself has nothing inside it."""
-        if item.identifier:
-            raise BrowseError("A Static Radio station is live and has nothing to browse")
+        """The list of stations, or one station with what is on and its links."""
         coordinator = self._coordinator()
+        if item.identifier:
+            return await self._station(coordinator, item.identifier)
         stations = coordinator.data.stations if coordinator is not None else ()
         children = [
-            child
+            _station_entry(station)
             for station in stations
-            if coordinator is not None and (child := _station(coordinator, station)) is not None
+            # Left out while it must not be played: another day's schedule.
+            if coordinator is not None and coordinator.live(station.station_id) is not None
         ]
         return BrowseMediaSource(
             domain=DOMAIN,
@@ -80,18 +88,69 @@ class StaticMediaSource(MediaSource):
             children=children,
         )
 
+    async def _station(
+        self, coordinator: StaticCoordinator | None, identifier: str
+    ) -> BrowseMediaSource:
+        """One station opened: what is on, with its links listed beneath."""
+        station_id = identifier.split("/", 1)[0]
+        station = coordinator.data.station(station_id) if coordinator is not None else None
+        found = coordinator.live(station_id) if coordinator is not None else None
+        if coordinator is None or station is None or found is None or identifier != station_id:
+            raise BrowseError("That Static Radio station is not on the dial right now")
+        episode = found.episode
+        links = await support_links(self.hass)
+        support_url = await links.for_episode(episode, coordinator.schedule_has_links)
 
-def _station(coordinator: StaticCoordinator, station: Station) -> BrowseMediaSource | None:
-    """One station's entry, or None while it must not be played (another day's schedule)."""
-    if coordinator.live(station.station_id) is None:
-        return None
+        children = []
+        if episode.episode_url.lower().startswith(_WEB):
+            children.append(_link_entry(station, "episode", "Episode page", episode.episode_url))
+        if support_url:
+            children.append(_link_entry(station, "support", "Support", support_url))
+        return BrowseMediaSource(
+            domain=DOMAIN,
+            identifier=station.station_id,
+            media_class=MediaClass.CHANNEL,
+            media_content_type=MediaType.CHANNEL,
+            title=_now_playing(station, episode),
+            can_play=False,
+            can_expand=True,
+            # Art that is not on the web is built into Static's own apps: no picture then.
+            thumbnail=episode.image_url if episode.image_url.startswith("https://") else None,
+            children_media_class=MediaClass.URL,
+            children=children,
+        )
+
+
+_WEB = ("https://", "http://")
+
+
+def _now_playing(station: Station, episode: Episode) -> str:
+    if episode.is_bulletin:
+        return f"{station.display_name} · Community bulletin"
+    return f"{station.display_name} · {episode.feed_title}: {episode.title}"
+
+
+def _station_entry(station: Station) -> BrowseMediaSource:
+    """A station in the list: its name only, and it opens."""
     return BrowseMediaSource(
         domain=DOMAIN,
         identifier=station.station_id,
         media_class=MediaClass.CHANNEL,
         media_content_type=MediaType.CHANNEL,
-        # The name only: see the top of this file for why not the show.
         title=station.display_name,
+        can_play=False,
+        can_expand=True,
+    )
+
+
+def _link_entry(station: Station, kind: str, label: str, url: str) -> BrowseMediaSource:
+    """A web address written out under a show. It cannot be played or opened."""
+    return BrowseMediaSource(
+        domain=DOMAIN,
+        identifier=f"{station.station_id}/{kind}",
+        media_class=MediaClass.URL,
+        media_content_type=MediaType.URL,
+        title=f"{label}: {url}",
         can_play=False,
         can_expand=False,
     )

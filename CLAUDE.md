@@ -86,6 +86,10 @@ provider. Do not build these without asking.
 - Nothing under `spikes/` is reused in the integration.
 - Spoken replies are one sentence, end in a period, and never end in a
   question mark. Sentence lists are prefixed `static_`.
+- A station is asked for by Static's own name for it and no other: no
+  nicknames or synonyms, only other spellings of the same spoken name. Every
+  change of station is announced with that name as Static writes it
+  (`tuner.py`).
 
 ## Issue tracking and sessions
 
