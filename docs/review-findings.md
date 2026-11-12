@@ -22,3 +22,5 @@ behind each. Read "Recurring patterns" before committing.
 | 2026-11-11 | 7196 | `scripts/verify.sh` labelled every failed step `uv:run`, so the verdict line did not say which gate failed | Each step is named |
 | 2026-11-11 | 7197 | `.mcp.json` pointed agents at a Static path the stated rules forbade, with no exception written down | The rule and the review guidelines name the exception: the MCP server Static's guide publishes for assistants, for development only |
 | 2026-11-11 | security check | The copied gitleaks allowlist carried patterns for secrets that exist in other repos, not this one | The allowlist is cut to this repo's test fixtures |
+| 2026-11-11 | 7208 | The spike's README told the reader to save a room recording at the repo root, outside the ignored folder | The documented path is `spikes/out/`, and audio files anywhere under `spikes/` are ignored |
+| 2026-11-11 | 7208 | The spike's connection log was described as showing a player's read-ahead; the figure counts audio generated, with seconds of buffering in between | The README says what the log does and does not show |

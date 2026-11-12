@@ -14,7 +14,6 @@ and +/- 30 s); the clicks between them give the spread.
 from __future__ import annotations
 
 import argparse
-import math
 import statistics
 import sys
 import wave
@@ -100,8 +99,6 @@ def main() -> None:
     for kind, heard, offset in rows:
         print(f"{kind:6s} heard {heard:.3f}  offset {offset:+.3f}")
     print(summarize(rows))
-    if not math.isfinite(args.started_at):
-        raise SystemExit(2)
 
 
 if __name__ == "__main__":

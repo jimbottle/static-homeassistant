@@ -28,10 +28,14 @@ uv run python spikes/click_track/server.py --host 0.0.0.0 --port 8765
 
 # 2. Tune the player to http://<that machine>:8765/click.flac?lead=1.0
 
-# 3. Record the speaker on the same machine, noting the wall-clock time of the
-#    first sample, for at least 12 s (one ten-second beep), then:
-uv run python spikes/click_track/analyze.py recording.wav --started-at <epoch seconds>
+# 3. Record the speaker on the same machine into spikes/out/, noting the
+#    wall-clock time of the first sample, for at least 12 s (one ten-second
+#    beep), then:
+uv run python spikes/click_track/analyze.py spikes/out/recording.wav --started-at <epoch seconds>
 ```
+
+Recordings pick up the room, so they stay in `spikes/out/`, which is ignored,
+as is any audio file anywhere under `spikes/`.
 
 One machine serves and records, so one clock times both. Record that clock's
 offset from true time before each run; it is the floor on what the measurement
@@ -41,9 +45,15 @@ can show.
 
 `spikes/out/connections.jsonl` (not tracked) has one line when a connection
 opens, one every 5 s, and one when it closes, with the bytes sent and the
-seconds of stream produced. From it: how many connections one tune makes
-(probes), how far ahead a player reads, and whether a resume opens a new
+seconds of stream generated. From it: how many connections one tune makes
+(probes), how long each stays open, and whether a resume opens a new
 connection or continues an old one.
+
+It does not show how far ahead a player reads. `fed_s` counts audio handed to
+the encoder, and `bytes` counts bytes the operating system accepted; the pipes
+and socket buffers between them hold many seconds of a stream that is mostly
+silence and compresses to almost nothing. Read-ahead has to come from the
+recording, not from this log.
 
 ### Self-check
 
