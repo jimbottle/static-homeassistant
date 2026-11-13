@@ -27,11 +27,13 @@ import clicks  # noqa: E402
 
 WINDOW_S = 0.004  # one look every 4 ms: four cycles of a click, eight of a beep
 GAP_WINDOWS = 4  # a mark may drop out this long (a lost packet is 11 ms) and still be one
-FLOOR = 0.002  # of full scale: a tone quieter than this is not a mark
+FLOOR = 0.001  # of full scale: a tone quieter than this is not a mark
 OVER_ROOM = 10  # and it must be this many times the room's usual level at that pitch
+ECHO_S = 0.3  # a mark this soon after another is the room still ringing
+BODY = 0.3  # a mark is the part of a stretch at least this share of its peak
 PURE = 0.6  # share of a window's loudness that must be the tone itself
 CLICK_HZ, BEEP_HZ = 1000.0, 2000.0
-CLICK_HEARD_MAX_S = 0.024  # the longest a heard click runs, echo included
+CLICK_HEARD_MAX_S = 0.032  # the longest a heard click runs, once its ringing is left off
 
 
 def _tone_levels(samples: array[int], rate: int, pitch: float) -> list[tuple[float, float]]:
@@ -60,17 +62,24 @@ def _runs(samples: array[int], rate: int, pitch: float) -> list[tuple[float, flo
     if not levels:
         return []
     threshold = max(FLOOR, OVER_ROOM * statistics.median(tone for tone, _ in levels))
-    found, start, last = [], None, 0
+    stretches, start, last = [], None, 0
     for n, (tone, loud) in enumerate(levels):
         if tone >= threshold and tone / math.sqrt(2) >= PURE * loud:
             if start is None:
                 start = n
             last = n
         elif start is not None and n - last > GAP_WINDOWS:
-            found.append((start * WINDOW_S, (last - start + 1) * WINDOW_S))
+            stretches.append((start, last))
             start = None
     if start is not None:
-        found.append((start * WINDOW_S, (last - start + 1) * WINDOW_S))
+        stretches.append((start, last))
+    found = []
+    for first, final in stretches:
+        # A room rings on after a mark, far more quietly. The mark itself is
+        # the part within reach of its own loudest moment.
+        body = BODY * max(tone for tone, _ in levels[first : final + 1])
+        strong = [n for n in range(first, final + 1) if levels[n][0] >= body]
+        found.append((strong[0] * WINDOW_S, (strong[-1] - strong[0] + 1) * WINDOW_S))
     return found
 
 
@@ -78,8 +87,8 @@ def marks(samples: array[int], rate: int) -> list[tuple[str, float]]:
     """(kind, start in seconds) of every click and beep heard, in order."""
     found = []
     for start, length in _runs(samples, rate, CLICK_HZ):
-        # A click is 8 ms and its echo a little more; a voice that passes
-        # through the click's pitch lasts longer and is left out.
+        # A click is 8 ms; a voice that passes through its pitch lasts longer
+        # and is left out.
         if length <= CLICK_HEARD_MAX_S:
             found.append(("click", start))
     for start, length in _runs(samples, rate, BEEP_HZ):
@@ -87,7 +96,14 @@ def marks(samples: array[int], rate: int) -> list[tuple[str, float]]:
             found.append(("minute", start))
         elif length > (clicks.CLICK_S + clicks.TEN_S) / 2:
             found.append(("ten", start))
-    return sorted(found, key=lambda mark: mark[1])
+    found.sort(key=lambda mark: mark[1])
+    # Marks are a second apart. Anything this soon after one is its own ringing,
+    # cut loose from it by a lost packet, and not a mark of its own.
+    kept: list[tuple[str, float]] = []
+    for kind, start in found:
+        if not kept or start - kept[-1][1] >= ECHO_S:
+            kept.append((kind, start))
+    return kept
 
 
 def offsets(found: list[tuple[str, float]], started_at: float) -> list[tuple[str, float, float]]:

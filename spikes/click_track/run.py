@@ -78,6 +78,8 @@ QUIET_BEFORE_S = 600  # the house rule: nothing audible within ten minutes of re
 PASS_WITHIN_S = 1.0
 PASS_AT_LEAST = 18
 WORST_ALLOWED_S = 2.0
+TROUBLE_AFTER = 3  # tunes in a row not fetched or not heard before a pass stops to look
+TROUBLE_WAIT_S = 300  # how long it then leaves the speaker alone before one more try
 
 
 def load_env() -> None:
@@ -366,6 +368,7 @@ class Spike:
                     break
                 except RuntimeError:
                     time.sleep(5)
+        self.wait(3.0)  # a reading taken at once still shows the old level
         after = self.house.state(self.esphome_player).get("attributes", {})
         level = after.get("volume_level") if isinstance(after, dict) else None
         self.record_result(
@@ -453,6 +456,41 @@ class Spike:
                     "wait until ten minutes have passed"
                 )
 
+    def fetched_since(self, at: float) -> bool:
+        """Whether anything has asked the click server for the stream since then.
+
+        The server's log is the one witness that does not depend on the
+        microphone: a tune the speaker never fetched made no sound for a
+        different reason than one it fetched and played too quietly to hear.
+        """
+        log = OUT / "connections.jsonl"
+        if not log.exists():
+            return False
+        for line in reversed(log.read_text(encoding="utf-8").splitlines()[-200:]):
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if event.get("at", 0) < at:
+                break
+            if event.get("event") == "open":
+                return True
+        return False
+
+    def players(self, why: str) -> None:
+        """Both players as Home Assistant sees them now. Reads only; commands neither."""
+        row: dict[str, object] = {"kind": "players", "why": why}
+        for name, entity in (("ma", self.ma_player), ("esphome", self.esphome_player)):
+            try:
+                state = self.house.state(entity)
+            except RuntimeError as err:
+                row[name] = f"unreadable: {str(err)[:80]}"
+                continue
+            attributes = state.get("attributes", {})
+            level = attributes.get("volume_level") if isinstance(attributes, dict) else None
+            row[name] = {"state": state.get("state"), "volume": level}
+        self.record_result(row)
+
     def tune(self, arm: str, number: int, silent: bool) -> dict[str, object]:
         """One tune: start recording, ask for the stream, listen, stop."""
         row: dict[str, object] = {"kind": "tune", "arm": arm, "n": number, "silent": silent}
@@ -480,6 +518,8 @@ class Spike:
             self.wait(TUNE_S / 2)  # a silent tune lasts as long as an audible one
         with contextlib.suppress(RuntimeError):
             self.stop(arm)
+        if not self.dry_run:
+            row["fetched"] = self.fetched_since(asked_at)
         if recording is not None and not silent:
             # A silent pass has nothing to hear; its rows are the calls, the
             # reported positions and the server's connection log.
@@ -492,13 +532,31 @@ class Spike:
         print(f"arm {arm}: {tunes} tunes, {'silent' if silent else 'audible'}")
         self.preflight(audible=not silent)  # a refusal here does end the run
         self.record_result(self.clocks())
+        if not self.dry_run:
+            self.players(f"before arm {arm}")
         rows: list[dict[str, object]] = []
+        failed, stops = 0, 0
         try:
             with self.volume_set(arm, 0.0 if silent else self.volume):
                 for number in range(1, tunes + 1):
                     row = self.tune(arm, number, silent)
                     self.record_result(row)
                     rows.append(row)
+                    worked = row.get("fetched", True) and (silent or bool(row.get("heard", True)))
+                    failed = 0 if worked else failed + 1
+                    if failed < TROUBLE_AFTER:
+                        continue
+                    # Three in a row is not chance. Say what the players look
+                    # like now, leave the speaker alone a while, try once more,
+                    # and give the pass up if it happens again.
+                    self.players(f"arm {arm}: {failed} tunes in a row not fetched or not heard")
+                    stops += 1
+                    if stops > 1:
+                        self.record_result({"kind": "pass given up", "arm": arm, "silent": silent,
+                                            "after_tune": number})  # fmt: skip
+                        break
+                    self.wait(TROUBLE_WAIT_S)
+                    failed = 0
         except RuntimeError as err:
             # The house could not be reached even after retries: this pass is
             # cut short and recorded, and the run goes on to the next one.
@@ -660,9 +718,10 @@ def run_command(spike: Spike, args: argparse.Namespace) -> None:
     elif args.command == "soak":
         spike.soak(args.arm, args.seconds)
     else:
+        # What is heard comes first, arm A before anything commands the
+        # speaker's own player. The silent passes go last: they are where a
+        # night went wrong once, and by then nothing measured depends on them.
         passed: list[tuple[float, str]] = []
-        for letter in args.arms:
-            spike.arm(letter, TUNES, silent=True)
         for letter in args.arms:
             rows = spike.arm(letter, TUNES, silent=False)
             result = verdict(letter, rows)
@@ -676,6 +735,8 @@ def run_command(spike: Spike, args: argparse.Namespace) -> None:
             spike.record_result({"kind": "night", "note": "no arm passed; no soak run"})
         else:
             spike.soak(best, SOAK_S)
+        for letter in args.arms:
+            spike.arm(letter, TUNES, silent=True)
 
 
 if __name__ == "__main__":
