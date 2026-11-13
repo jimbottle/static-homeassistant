@@ -14,6 +14,8 @@ and +/- 30 s); the clicks between them give the spread.
 from __future__ import annotations
 
 import argparse
+import math
+import operator
 import statistics
 import sys
 import wave
@@ -23,24 +25,48 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 import clicks  # noqa: E402
 
-WINDOW_S = 0.001  # envelope resolution: 1 ms
-QUIET_S = 0.200  # a mark is over after this much quiet
+WINDOW_S = 0.004  # one look every 4 ms: four cycles of a click, eight of a beep
+GAP_WINDOWS = 4  # a mark may drop out this long (a lost packet is 11 ms) and still be one
+FLOOR = 0.002  # of full scale: a tone quieter than this is not a mark
+OVER_ROOM = 10  # and it must be this many times the room's usual level at that pitch
+PURE = 0.6  # share of a window's loudness that must be the tone itself
+CLICK_HZ, BEEP_HZ = 1000.0, 2000.0
+CLICK_HEARD_MAX_S = 0.024  # the longest a heard click runs, echo included
 
 
-def marks(samples: array[int], rate: int, threshold: float) -> list[tuple[float, float]]:
-    """(start, length) in seconds of every burst louder than threshold."""
+def _tone_levels(samples: array[int], rate: int, pitch: float) -> list[tuple[float, float]]:
+    """(tone amplitude, overall loudness) of each window, both 0..1 of full scale."""
     win = max(1, int(rate * WINDOW_S))
-    loud = [
-        max(abs(s) for s in samples[i : i + win]) / 32768 >= threshold
-        for i in range(0, len(samples) - win, win)
-    ]
+    cos = [math.cos(2 * math.pi * pitch * i / rate) for i in range(win)]
+    sin = [math.sin(2 * math.pi * pitch * i / rate) for i in range(win)]
+    out = []
+    for at in range(0, len(samples) - win + 1, win):
+        chunk = samples[at : at + win]
+        i = sum(map(operator.mul, chunk, cos))
+        q = sum(map(operator.mul, chunk, sin))
+        power = sum(map(operator.mul, chunk, chunk))
+        out.append((2 * math.hypot(i, q) / win / 32768, math.sqrt(power / win) / 32768))
+    return out
+
+
+def _runs(samples: array[int], rate: int, pitch: float) -> list[tuple[float, float]]:
+    """(start, length) in seconds of every stretch that is mostly a tone at pitch.
+
+    The click track is two pure tones, so a mark is looked for by its pitch and
+    not by loudness alone: a door, a voice or a key press is loud at every
+    pitch at once and is passed over, however loud it is.
+    """
+    levels = _tone_levels(samples, rate, pitch)
+    if not levels:
+        return []
+    threshold = max(FLOOR, OVER_ROOM * statistics.median(tone for tone, _ in levels))
     found, start, last = [], None, 0
-    for i, on in enumerate(loud):
-        if on:
+    for n, (tone, loud) in enumerate(levels):
+        if tone >= threshold and tone / math.sqrt(2) >= PURE * loud:
             if start is None:
-                start = i
-            last = i
-        elif start is not None and (i - last) * WINDOW_S > QUIET_S:
+                start = n
+            last = n
+        elif start is not None and n - last > GAP_WINDOWS:
             found.append((start * WINDOW_S, (last - start + 1) * WINDOW_S))
             start = None
     if start is not None:
@@ -48,18 +74,29 @@ def marks(samples: array[int], rate: int, threshold: float) -> list[tuple[float,
     return found
 
 
-def offsets(found: list[tuple[float, float]], started_at: float) -> list[tuple[str, float, float]]:
-    """(kind, heard_at, offset) per mark. offset > 0: heard after its true time."""
-    out = []
-    for start, length in found:
-        heard = started_at + start
+def marks(samples: array[int], rate: int) -> list[tuple[str, float]]:
+    """(kind, start in seconds) of every click and beep heard, in order."""
+    found = []
+    for start, length in _runs(samples, rate, CLICK_HZ):
+        # A click is 8 ms and its echo a little more; a voice that passes
+        # through the click's pitch lasts longer and is left out.
+        if length <= CLICK_HEARD_MAX_S:
+            found.append(("click", start))
+    for start, length in _runs(samples, rate, BEEP_HZ):
         if length > (clicks.TEN_S + clicks.MINUTE_S) / 2:
-            kind, period = "minute", 60
+            found.append(("minute", start))
         elif length > (clicks.CLICK_S + clicks.TEN_S) / 2:
-            kind, period = "ten", 10
-        else:
-            kind, period = "click", 1
-        true = round(heard / period) * period
+            found.append(("ten", start))
+    return sorted(found, key=lambda mark: mark[1])
+
+
+def offsets(found: list[tuple[str, float]], started_at: float) -> list[tuple[str, float, float]]:
+    """(kind, heard_at, offset) per mark. offset > 0: heard after its true time."""
+    period = {"click": 1, "ten": 10, "minute": 60}
+    out = []
+    for kind, start in found:
+        heard = started_at + start
+        true = round(heard / period[kind]) * period[kind]
         out.append((kind, heard, heard - true))
     return out
 
@@ -92,10 +129,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Offset of a recorded click track from the clock")
     parser.add_argument("wav", type=Path)
     parser.add_argument("--started-at", type=float, required=True)
-    parser.add_argument("--threshold", type=float, default=0.1, help="0..1, of full scale")
     args = parser.parse_args()
     samples, rate = read_wav(args.wav)
-    rows = offsets(marks(samples, rate, args.threshold), args.started_at)
+    rows = offsets(marks(samples, rate), args.started_at)
     for kind, heard, offset in rows:
         print(f"{kind:6s} heard {heard:.3f}  offset {offset:+.3f}")
     print(summarize(rows))

@@ -25,7 +25,8 @@ Everything about the house comes from the environment or an untracked
   SPIKE_MA_PLAYER        entity id of the speaker's Music Assistant player
   SPIKE_ESPHOME_PLAYER   entity id of the speaker's own ESPHome player
   SPIKE_HOST             this machine's address on the home network
-  SPIKE_MIC              ffmpeg avfoundation audio device index (default 0)
+  SPIKE_MIC              ffmpeg avfoundation audio device, by name or index
+                         (default 0); a name survives devices coming and going
   SPIKE_VOLUME           volume for the audible passes, 0..1 (default 0.25)
   SPIKE_PIPELINE_LOG     optional: path on that machine of the voice pipeline's
                          run log; if set, a run refuses to start within ten
@@ -224,6 +225,10 @@ class Recording:
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
                 "-f", "avfoundation", "-i", f":{mic}",
                 "-t", f"{seconds}", "-ac", "1", "-ar", str(RATE),
+                # This capture can hand over fewer samples than the time it
+                # covers (a tenth short on one machine). Each packet carries its
+                # true time, so let ffmpeg leave silence where a packet went missing.
+                "-af", "aresample=async=1:min_hard_comp=0.002",
                 "-f", "s16le", "-flush_packets", "1", "-",
             ],  # fmt: skip
             stdout=subprocess.PIPE,
@@ -273,14 +278,12 @@ def measure(samples: array[int], started_at: float, asked_at: float) -> dict[str
     sound many seconds after the ask, which is recorded beside it.
     """
     peak = max((abs(s) for s in samples), default=0) / 32768
-    if peak < 0.004:  # noqa: PLR2004 - quieter than this is room noise, not a click
-        return {"heard": False, "peak": round(peak, 4)}
-    # Marks are found relative to the loudest thing in the room, so a quiet
-    # speaker a couple of metres from the microphone still counts.
-    threshold = max(0.003, peak * 0.35)
-    found = analyze.marks(samples, RATE, threshold)
     # Only what was heard after the speaker was asked to play belongs to this tune.
-    found = [(start, length) for start, length in found if started_at + start >= asked_at]
+    found = [
+        (kind, start)
+        for kind, start in analyze.marks(samples, RATE)
+        if started_at + start >= asked_at
+    ]
     rows = analyze.offsets(found, started_at)
     raw_tens = [o % 10 for kind, _, o in rows if kind in ("ten", "minute")]
     # Readings either side of a multiple of ten (9.95 and 0.05) are the same
@@ -642,7 +645,16 @@ def run_command(spike: Spike, args: argparse.Namespace) -> None:
             room = Recording(spike.mic, 3)
             room.finish()
             peak = max(abs(s) for s in room.samples) / 32768
-            spike.record_result({"kind": "microphone", "room_peak": round(peak, 4)})
+            length = len(room.samples) / RATE
+            spike.record_result(
+                {"kind": "microphone", "room_peak": round(peak, 4), "recorded_s": round(length, 2)}
+            )
+            # A real room is never exactly silent: all zeros is the wrong
+            # device, or a microphone this program is not allowed to use.
+            if peak == 0:
+                raise SystemExit(f"run.py: device {spike.mic!r} records silence; set SPIKE_MIC")
+            if abs(length - 3) > 0.15:  # noqa: PLR2004
+                raise SystemExit(f"run.py: asked for 3 s of sound and got {length:.2f} s")
     elif args.command == "arm":
         spike.arm(args.arm, args.tunes, args.silent)
     elif args.command == "soak":
