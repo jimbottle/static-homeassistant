@@ -25,7 +25,8 @@ Everything about the house comes from the environment or an untracked
   SPIKE_MA_PLAYER        entity id of the speaker's Music Assistant player
   SPIKE_ESPHOME_PLAYER   entity id of the speaker's own ESPHome player
   SPIKE_HOST             this machine's address on the home network
-  SPIKE_MIC              ffmpeg avfoundation audio device index (default 0)
+  SPIKE_MIC              ffmpeg avfoundation audio device, by name or index
+                         (default 0); a name survives devices coming and going
   SPIKE_VOLUME           volume for the audible passes, 0..1 (default 0.25)
   SPIKE_PIPELINE_LOG     optional: path on that machine of the voice pipeline's
                          run log; if set, a run refuses to start within ten
@@ -77,6 +78,8 @@ QUIET_BEFORE_S = 600  # the house rule: nothing audible within ten minutes of re
 PASS_WITHIN_S = 1.0
 PASS_AT_LEAST = 18
 WORST_ALLOWED_S = 2.0
+TROUBLE_AFTER = 3  # tunes in a row not fetched or not heard before a pass stops to look
+TROUBLE_WAIT_S = 300  # how long it then leaves the speaker alone before one more try
 
 
 def load_env() -> None:
@@ -224,6 +227,10 @@ class Recording:
                 "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
                 "-f", "avfoundation", "-i", f":{mic}",
                 "-t", f"{seconds}", "-ac", "1", "-ar", str(RATE),
+                # This capture can hand over fewer samples than the time it
+                # covers (a tenth short on one machine). Each packet carries its
+                # true time, so let ffmpeg leave silence where a packet went missing.
+                "-af", "aresample=async=1:min_hard_comp=0.002",
                 "-f", "s16le", "-flush_packets", "1", "-",
             ],  # fmt: skip
             stdout=subprocess.PIPE,
@@ -273,14 +280,12 @@ def measure(samples: array[int], started_at: float, asked_at: float) -> dict[str
     sound many seconds after the ask, which is recorded beside it.
     """
     peak = max((abs(s) for s in samples), default=0) / 32768
-    if peak < 0.004:  # noqa: PLR2004 - quieter than this is room noise, not a click
-        return {"heard": False, "peak": round(peak, 4)}
-    # Marks are found relative to the loudest thing in the room, so a quiet
-    # speaker a couple of metres from the microphone still counts.
-    threshold = max(0.003, peak * 0.35)
-    found = analyze.marks(samples, RATE, threshold)
     # Only what was heard after the speaker was asked to play belongs to this tune.
-    found = [(start, length) for start, length in found if started_at + start >= asked_at]
+    found = [
+        (kind, start)
+        for kind, start in analyze.marks(samples, RATE)
+        if started_at + start >= asked_at
+    ]
     rows = analyze.offsets(found, started_at)
     raw_tens = [o % 10 for kind, _, o in rows if kind in ("ten", "minute")]
     # Readings either side of a multiple of ten (9.95 and 0.05) are the same
@@ -363,6 +368,7 @@ class Spike:
                     break
                 except RuntimeError:
                     time.sleep(5)
+        self.wait(3.0)  # a reading taken at once still shows the old level
         after = self.house.state(self.esphome_player).get("attributes", {})
         level = after.get("volume_level") if isinstance(after, dict) else None
         self.record_result(
@@ -450,6 +456,41 @@ class Spike:
                     "wait until ten minutes have passed"
                 )
 
+    def fetched_since(self, at: float) -> bool:
+        """Whether anything has asked the click server for the stream since then.
+
+        The server's log is the one witness that does not depend on the
+        microphone: a tune the speaker never fetched made no sound for a
+        different reason than one it fetched and played too quietly to hear.
+        """
+        log = OUT / "connections.jsonl"
+        if not log.exists():
+            return False
+        for line in reversed(log.read_text(encoding="utf-8").splitlines()[-200:]):
+            try:
+                event = json.loads(line)
+            except ValueError:
+                continue
+            if event.get("at", 0) < at:
+                break
+            if event.get("event") == "open":
+                return True
+        return False
+
+    def players(self, why: str) -> None:
+        """Both players as Home Assistant sees them now. Reads only; commands neither."""
+        row: dict[str, object] = {"kind": "players", "why": why}
+        for name, entity in (("ma", self.ma_player), ("esphome", self.esphome_player)):
+            try:
+                state = self.house.state(entity)
+            except RuntimeError as err:
+                row[name] = f"unreadable: {str(err)[:80]}"
+                continue
+            attributes = state.get("attributes", {})
+            level = attributes.get("volume_level") if isinstance(attributes, dict) else None
+            row[name] = {"state": state.get("state"), "volume": level}
+        self.record_result(row)
+
     def tune(self, arm: str, number: int, silent: bool) -> dict[str, object]:
         """One tune: start recording, ask for the stream, listen, stop."""
         row: dict[str, object] = {"kind": "tune", "arm": arm, "n": number, "silent": silent}
@@ -477,6 +518,8 @@ class Spike:
             self.wait(TUNE_S / 2)  # a silent tune lasts as long as an audible one
         with contextlib.suppress(RuntimeError):
             self.stop(arm)
+        if not self.dry_run:
+            row["fetched"] = self.fetched_since(asked_at)
         if recording is not None and not silent:
             # A silent pass has nothing to hear; its rows are the calls, the
             # reported positions and the server's connection log.
@@ -489,13 +532,31 @@ class Spike:
         print(f"arm {arm}: {tunes} tunes, {'silent' if silent else 'audible'}")
         self.preflight(audible=not silent)  # a refusal here does end the run
         self.record_result(self.clocks())
+        if not self.dry_run:
+            self.players(f"before arm {arm}")
         rows: list[dict[str, object]] = []
+        failed, stops = 0, 0
         try:
             with self.volume_set(arm, 0.0 if silent else self.volume):
                 for number in range(1, tunes + 1):
                     row = self.tune(arm, number, silent)
                     self.record_result(row)
                     rows.append(row)
+                    worked = row.get("fetched", True) and (silent or bool(row.get("heard", True)))
+                    failed = 0 if worked else failed + 1
+                    if failed < TROUBLE_AFTER:
+                        continue
+                    # Three in a row is not chance. Say what the players look
+                    # like now, leave the speaker alone a while, try once more,
+                    # and give the pass up if it happens again.
+                    self.players(f"arm {arm}: {failed} tunes in a row not fetched or not heard")
+                    stops += 1
+                    if stops > 1:
+                        self.record_result({"kind": "pass given up", "arm": arm, "silent": silent,
+                                            "after_tune": number})  # fmt: skip
+                        break
+                    self.wait(TROUBLE_WAIT_S)
+                    failed = 0
         except RuntimeError as err:
             # The house could not be reached even after retries: this pass is
             # cut short and recorded, and the run goes on to the next one.
@@ -642,15 +703,25 @@ def run_command(spike: Spike, args: argparse.Namespace) -> None:
             room = Recording(spike.mic, 3)
             room.finish()
             peak = max(abs(s) for s in room.samples) / 32768
-            spike.record_result({"kind": "microphone", "room_peak": round(peak, 4)})
+            length = len(room.samples) / RATE
+            spike.record_result(
+                {"kind": "microphone", "room_peak": round(peak, 4), "recorded_s": round(length, 2)}
+            )
+            # A real room is never exactly silent: all zeros is the wrong
+            # device, or a microphone this program is not allowed to use.
+            if peak == 0:
+                raise SystemExit(f"run.py: device {spike.mic!r} records silence; set SPIKE_MIC")
+            if abs(length - 3) > 0.15:  # noqa: PLR2004
+                raise SystemExit(f"run.py: asked for 3 s of sound and got {length:.2f} s")
     elif args.command == "arm":
         spike.arm(args.arm, args.tunes, args.silent)
     elif args.command == "soak":
         spike.soak(args.arm, args.seconds)
     else:
+        # What is heard comes first, arm A before anything commands the
+        # speaker's own player. The silent passes go last: they are where a
+        # night went wrong once, and by then nothing measured depends on them.
         passed: list[tuple[float, str]] = []
-        for letter in args.arms:
-            spike.arm(letter, TUNES, silent=True)
         for letter in args.arms:
             rows = spike.arm(letter, TUNES, silent=False)
             result = verdict(letter, rows)
@@ -664,6 +735,8 @@ def run_command(spike: Spike, args: argparse.Namespace) -> None:
             spike.record_result({"kind": "night", "note": "no arm passed; no soak run"})
         else:
             spike.soak(best, SOAK_S)
+        for letter in args.arms:
+            spike.arm(letter, TUNES, silent=True)
 
 
 if __name__ == "__main__":
