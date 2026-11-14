@@ -14,10 +14,11 @@ import time
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.start import async_at_started
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.loader import async_get_integration
 
@@ -26,6 +27,8 @@ from .const import DOMAIN
 from .coordinator import SCHEMA_ISSUE, StaticCoordinator, session_fetch
 from .intents import async_setup_intents
 from .schedule import parse_schedule
+from .stream import async_setup_stream, prepare_openings
+from .tune import async_setup_tune
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
 
@@ -36,8 +39,9 @@ CONFIG_SCHEMA = cv.config_entry_only_config_schema(DOMAIN)
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
-    """Register what a voice assistant can ask, once for the life of Home Assistant."""
+    """Register the voice intents and the tune action, once for the life of Home Assistant."""
     async_setup_intents(hass)
+    async_setup_tune(hass)
     return True
 
 
@@ -70,6 +74,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> bo
     coordinator = StaticCoordinator(hass, entry, await _schedule_client(hass))
     await coordinator.async_config_entry_first_refresh()
     entry.runtime_data = coordinator
+    await async_setup_stream(hass)
+
+    @callback
+    def speak_the_names(_hass: HomeAssistant) -> None:
+        prepare_openings(hass, entry)
+
+    # Not before Home Assistant has started: text-to-speech and the assistant
+    # whose voice is used load after this does, and a name asked for too soon
+    # finds neither. On a reload this runs at once.
+    entry.async_on_unload(async_at_started(hass, speak_the_names))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
