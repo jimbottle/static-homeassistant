@@ -50,7 +50,12 @@ from custom_components.static_radio.stream import CONF_STREAM_KEYS, _from_home, 
 FFMPEG = shutil.which("ffmpeg")
 if FFMPEG is None and os.environ.get("CI"):
     raise RuntimeError("these tests need ffmpeg, and CI is meant to have it")
-pytestmark = pytest.mark.skipif(FFMPEG is None, reason="ffmpeg is not installed")
+pytestmark = [
+    pytest.mark.skipif(FFMPEG is None, reason="ffmpeg is not installed"),
+    # A stream that sends nothing must fail the test that is waiting on it,
+    # not hold the whole run until the job is cancelled.
+    pytest.mark.timeout(120),
+]
 
 SCHEDULE_WITH_LINKS_FIXTURE = (
     Path(__file__).resolve().parent.parent / "fixtures/schedule-wear.2026-11-12.json"
