@@ -49,7 +49,15 @@ from .coordinator import now_ms
 from .episode import EpisodeRelayView, episode_opener
 from .opening import opening_for
 from .schedule import Episode, Schedule
-from .station_audio import CHANNELS, SAMPLE_RATE, Listen, OpenEpisode, Source, station_pcm
+from .station_audio import (
+    CHANNELS,
+    SAMPLE_RATE,
+    Listen,
+    OpenEpisode,
+    Source,
+    end_process,
+    station_pcm,
+)
 
 if TYPE_CHECKING:
     from . import StaticConfigEntry
@@ -317,10 +325,7 @@ class StationStreamView(HomeAssistantView):
             with contextlib.suppress(asyncio.CancelledError):
                 await feeding
             await samples.aclose()
-            if encoder.returncode is None:
-                with contextlib.suppress(ProcessLookupError):
-                    encoder.kill()
-                await encoder.wait()
+            await end_process(encoder)
 
 
 def prepare_openings(hass: HomeAssistant, entry: StaticConfigEntry) -> None:

@@ -67,6 +67,7 @@ FILL_BELOW_MS = 2000
 # player of what it buffers and stops a reader that takes all it is given.
 MAX_AHEAD_MS = 60_000
 PIECE_MS = 1000  # silence is sent in pieces this long, never as one block
+END_TIMEOUT_S = 5  # how long a stopped ffmpeg is given to go
 URL_TIMEOUT_S = 30  # how long ffmpeg waits on an address it reads from itself
 NO_SCHEDULE_MS = 1000  # with no usable schedule, how much silence before looking again
 
@@ -120,6 +121,29 @@ class Listen:
     open_episode: OpenEpisode
     ffmpeg: str  # the ffmpeg binary
     opening: bytes = b""  # the station's name, spoken, as samples; empty for silence
+
+
+async def end_process(process: asyncio.subprocess.Process) -> None:
+    """Stop an ffmpeg and wait until it has gone, without waiting for ever.
+
+    Waiting for a process to exit does not return, on the Python that Home
+    Assistant 2026.7 runs (3.14.6, and 3.14.4), while output it wrote is still
+    sitting unread: the wait is for its pipes as well as for the process. That
+    is the usual state of an ffmpeg being stopped early, since it is stopped
+    because nobody wants the rest. So what is left of its output is read and
+    thrown away first, and the wait is given a limit all the same.
+    """
+    if process.returncode is None:
+        with contextlib.suppress(ProcessLookupError):
+            process.kill()
+    try:
+        async with asyncio.timeout(END_TIMEOUT_S):
+            if process.stdout is not None:
+                while await process.stdout.read(_READ_BYTES):
+                    pass
+            await process.wait()
+    except TimeoutError:
+        _LOGGER.warning("An ffmpeg process did not end within %s s of being stopped", END_TIMEOUT_S)
 
 
 def silence(ms: int) -> bytes:
@@ -253,10 +277,8 @@ class _Decoder:
         if close is not None:
             with contextlib.suppress(Exception):
                 await close()
-        if self._process is not None and self._process.returncode is None:
-            with contextlib.suppress(ProcessLookupError):
-                self._process.kill()
-            await self._process.wait()
+        if self._process is not None:
+            await end_process(self._process)
         if self._release is not None:
             self._release()
             self._release = None
