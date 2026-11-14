@@ -13,6 +13,7 @@ import itertools
 import json
 import os
 import re
+import select
 import shutil
 import subprocess
 import sys
@@ -382,3 +383,22 @@ async def test_streams_play_on_through_a_reload_and_end_after_a_removal(
         with pytest.raises(Exception):  # noqa: B017 - closed mid-stream, however aiohttp says it
             while await listening.content.read(65536):
                 pass
+
+
+def test_the_encoder_sends_the_opening_on_without_waiting_for_more() -> None:
+    """Some ffmpeg releases (8.0) hold their first output until they have seen
+    five seconds of input, unless told there is nothing to look for."""
+    command = stream._encode_command(FFMPEG or "ffmpeg")
+    encoder = subprocess.Popen(  # noqa: S603
+        command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+    )
+    assert encoder.stdin is not None and encoder.stdout is not None
+    try:
+        encoder.stdin.write(bytes(OPENING_MS * BYTES_PER_MS))
+        encoder.stdin.flush()
+        ready, _, _ = select.select([encoder.stdout], [], [], 3)  # the input stays open
+        assert ready, "nothing came out of the encoder within 3 s of the whole opening"
+        assert os.read(encoder.stdout.fileno(), 4) == b"fLaC"
+    finally:
+        encoder.kill()
+        encoder.wait()

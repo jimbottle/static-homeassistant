@@ -150,6 +150,11 @@ def _ffmpeg_binary(hass: HomeAssistant) -> str:
 def _encode_command(binary: str) -> list[str]:
     return [
         binary, "-hide_banner", "-loglevel", "error", "-nostdin",
+        # Raw samples have nothing to find out, so do not look. Left to itself,
+        # ffmpeg 8.0 reads five seconds of input before it encodes any: nothing
+        # reaches the speaker while the opening is all there is, and by the time
+        # something does, the stream is behind the live moment it was cut for.
+        "-probesize", "32", "-analyzeduration", "0",
         "-f", "s16le", "-ar", str(SAMPLE_RATE), "-ac", str(CHANNELS), "-i", "pipe:0",
         "-c:a", "flac", "-compression_level", "2", "-flush_packets", "1",
         "-f", "flac", "pipe:1",
