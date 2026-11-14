@@ -60,6 +60,9 @@ jobs:
         with:
           enable-cache: true
       - run: uv sync --frozen
+      # The stream tests decode and encode generated tones with real ffmpeg.
+      - name: ffmpeg
+        run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y --no-install-recommends ffmpeg)
       # The same gate contributors run locally: ruff, format, mypy, pytest.
       - run: scripts/verify.sh
 
@@ -68,6 +71,23 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: home-assistant/actions/hassfest@86d4564712fa02543c808e3a693dd04f9d3f8361 # master, 2026-10-26
+
+  # HACS's own checks on the repo, the same ones its store runs. This is how
+  # the integration will be installed (as a custom repository), so a change
+  # that would break the install is caught here.
+  hacs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
+        with:
+          category: integration
+          # Two checks are known to fail until the first release and are the
+          # owner's to settle, so they are left out until then
+          # (docs/release-checklist.md): the repo has no topics yet, and the
+          # integration has no icon of its own. Static's logo is Static's and
+          # is not used.
+          ignore: brands topics
 
   build:
     runs-on: ubuntu-latest
