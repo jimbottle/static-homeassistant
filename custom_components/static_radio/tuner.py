@@ -12,8 +12,8 @@ Two rules from the owner are kept here:
 - Whenever the station changes, the reply says which station it now is, using
   Static's name exactly as Static writes it.
 
-It imports nothing from Home Assistant and plays nothing. The part that starts
-a station playing is not built yet.
+It imports nothing from Home Assistant and plays nothing: tune.py does the
+tuning, with the answers from here.
 """
 
 from __future__ import annotations

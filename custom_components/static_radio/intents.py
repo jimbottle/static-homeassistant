@@ -1,6 +1,17 @@
-"""What a voice assistant can answer about Static: what is on, and the Support link.
+"""What a voice assistant can do with Static: tune it, and answer about it.
 
-Three intents, none touching audio:
+Four intents tune the speaker that was spoken to (tune.py does the work):
+
+- StaticPlay comes back to the station that speaker was last on.
+- StaticTune goes to the station named, by Static's own name for it.
+- StaticNext and StaticPrevious move one place along the dial, which has two
+  ends and does not wrap.
+
+Each answers with the station's name as Static writes it, which is the
+owner's rule for every change of station. The stream then opens without
+saying it a second time.
+
+Three more answer questions and touch no audio:
 
 - StaticWhatsOn says the station, the show and the episode, and mentions that
   the show has a Support link when it does.
@@ -11,7 +22,10 @@ Three intents, none touching audio:
   screen, as a notification that opens the show's Support page, and says so.
   With no phone chosen it reads the link out instead.
 
-All also return the episode's page and the Support link as whole addresses in
+A question that names no station is about the one the speaker spoken to is
+tuned to.
+
+All three also return the episode's page and the Support link as whole addresses in
 the response's slots (episode_url, support_url). That is the part of a reply
 an assistant with a language model receives, so it can pass on the real link
 and not the shortened one that is spoken.
@@ -40,8 +54,13 @@ from .const import CONF_NOTIFY_SERVICE, DOMAIN
 from .coordinator import StaticCoordinator
 from .feed import support_links
 from .schedule import Episode, Station
-from .tuner import find_station, unknown_station_reply
+from .tune import TuneError, async_tune, speaker_for, tuned_station
+from .tuner import find_station, tuned_reply, unknown_station_reply
 
+INTENT_PLAY = "StaticPlay"
+INTENT_TUNE = "StaticTune"
+INTENT_NEXT = "StaticNext"
+INTENT_PREVIOUS = "StaticPrevious"
 INTENT_WHATS_ON = "StaticWhatsOn"
 INTENT_SUPPORT_LINK = "StaticSupportLink"
 INTENT_SEND_SUPPORT_LINK = "StaticSendSupportLink"
@@ -53,6 +72,10 @@ _SCHEMES = ("https://", "http://")
 @callback
 def async_setup_intents(hass: HomeAssistant) -> None:
     """Register the intents, once, when the integration is first loaded."""
+    intent.async_register(hass, PlayHandler())
+    intent.async_register(hass, TuneHandler())
+    intent.async_register(hass, NextHandler())
+    intent.async_register(hass, PreviousHandler())
     intent.async_register(hass, WhatsOnHandler())
     intent.async_register(hass, SupportLinkHandler())
     intent.async_register(hass, SendSupportLinkHandler())
@@ -121,13 +144,19 @@ class _StaticHandler(intent.IntentHandler):
         coordinator: StaticCoordinator = loaded[0].runtime_data
 
         said = slots.get(SLOT_STATION, {}).get("value")
-        if not said:
-            # Nothing is tuned yet in this version, so the station has to be named.
-            return "Say which Static station, for example Static News."
-        station = find_station(coordinator.data.stations, str(said))
-        if station is None:
-            # Only Static's own names are stations; say what they are.
-            return unknown_station_reply(coordinator.data.stations)
+        if said:
+            station = find_station(coordinator.data.stations, str(said))
+            if station is None:
+                # Only Static's own names are stations; say what they are.
+                return unknown_station_reply(coordinator.data.stations)
+        else:
+            # No station named: the one this speaker is tuned to, if it can be told.
+            try:
+                station = tuned_station(hass, speaker_for(hass, intent_obj.device_id))
+            except TuneError:
+                station = None
+            if station is None:
+                return "Say which Static station, for example Static News."
         found = coordinator.live(station.station_id)
         if found is None:
             return "Static's schedule is not available right now."
@@ -135,6 +164,72 @@ class _StaticHandler(intent.IntentHandler):
         links = await support_links(hass)
         link = await links.for_episode(found.episode, coordinator.schedule_has_links)
         return _OnAir(station, found.episode, link)
+
+
+class _TuneHandler(intent.IntentHandler):
+    """Shared by the four that tune: do it on the speaker spoken to, and name the station."""
+
+    by = 0  # places along the dial: 1 for next, -1 for previous
+
+    @property
+    def slot_schema(self) -> dict[Any, Any]:
+        return {vol.Optional(SLOT_STATION): cv.string}
+
+    async def async_handle(self, intent_obj: intent.Intent) -> intent.IntentResponse:
+        hass = intent_obj.hass
+        slots = self.async_validate_slots(intent_obj.slots)
+        said = slots.get(SLOT_STATION, {}).get("value")
+        response: intent.IntentResponse = intent_obj.create_response()
+        try:
+            speaker = speaker_for(hass, intent_obj.device_id)
+            # The reply names the station, so the stream does not say it again.
+            station = await async_tune(
+                hass, speaker, name=str(said) if said else None, by=self.by, say=False
+            )
+        except TuneError as err:
+            response.async_set_speech(str(err))
+        except HomeAssistantError:
+            response.async_set_speech("Static could not be started on that speaker.")
+        else:
+            response.async_set_speech(tuned_reply(station))
+        return response
+
+
+class PlayHandler(_TuneHandler):
+    """Plays Static on the speaker spoken to, on the station it was last on."""
+
+    intent_type = INTENT_PLAY
+    description = (
+        "Starts Static Radio, a live radio service, on the speaker that was spoken to, "
+        "on the station that speaker was last tuned to. Static is live: it cannot be "
+        "paused, rewound or skipped."
+    )
+
+
+class TuneHandler(_TuneHandler):
+    """Tunes the speaker spoken to, to the station named."""
+
+    intent_type = INTENT_TUNE
+    description = (
+        "Tunes the speaker that was spoken to, to a Static Radio station, live. Give the "
+        "station's own name, such as News, Nature or Sleep."
+    )
+
+
+class NextHandler(_TuneHandler):
+    """Moves the speaker spoken to one station along the dial."""
+
+    intent_type = INTENT_NEXT
+    by = 1
+    description = "Tunes the speaker that was spoken to, to the next Static Radio station."
+
+
+class PreviousHandler(_TuneHandler):
+    """Moves the speaker spoken to one station back along the dial."""
+
+    intent_type = INTENT_PREVIOUS
+    by = -1
+    description = "Tunes the speaker that was spoken to, to the previous Static Radio station."
 
 
 class WhatsOnHandler(_StaticHandler):

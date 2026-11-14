@@ -1,9 +1,19 @@
 {
   "domain": "static_radio",
   "name": "Static Radio (unofficial)",
-  "codeowners": ["@jimbottle"],
+  "after_dependencies": [
+    "assist_pipeline",
+    "ffmpeg",
+    "tts"
+  ],
+  "codeowners": [
+    "@jimbottle"
+  ],
   "config_flow": true,
-  "dependencies": ["media_source"],
+  "dependencies": [
+    "http",
+    "media_source"
+  ],
   "documentation": "https://github.com/jimbottle/static-homeassistant",
   "integration_type": "service",
   "iot_class": "cloud_polling",

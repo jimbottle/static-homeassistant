@@ -18,8 +18,11 @@ DEVELOPER_GUIDE_URL = "https://staticradio.app/developers"
 CONF_SPEAKERS = "speakers"  # media player entity ids that can be tuned to Static
 CONF_LEADS_MS = "leads_ms"  # entity id -> how far ahead of live to start, in ms
 CONF_NOTIFY_SERVICE = "notify_service"  # the notify action a Support link is sent with
+CONF_ANNOUNCE = "announce"  # whether a stream opens with the station's name, spoken
 
 # How far ahead of the live moment a stream starts, to cover the time a
-# speaker takes to make sound. 1.0 s is Static's reference player's figure.
-DEFAULT_LEAD_MS = 1000
+# speaker takes to make sound. Static's reference player uses 1.0 s. Measured
+# here on a Voice Preview Edition: 1.33 s through Music Assistant (20 tunes
+# within 0.08 s of each other), 0.28 s on its own ESPHome player.
+DEFAULT_LEAD_MS = 1300
 LEAD_MAX_MS = 5000

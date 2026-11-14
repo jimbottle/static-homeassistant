@@ -23,11 +23,13 @@
         "description": "Choose the speakers that can be tuned to Static, and the phone a show's Support link is sent to when someone asks for it.",
         "data": {
           "speakers": "Speakers",
-          "notify_service": "Send Support links to"
+          "notify_service": "Send Support links to",
+          "announce": "Say the station's name when tuning"
         },
         "data_description": {
           "speakers": "Each speaker chosen gets a station selector.",
-          "notify_service": "A phone with the Home Assistant app. Choose none to have the link read out and not sent."
+          "notify_service": "A phone with the Home Assistant app. Choose none to have the link read out and not sent.",
+          "announce": "Spoken at the start of the stream while the episode is fetched. Left out when you tune by voice, because the assistant has just said it."
         }
       },
       "leads": {
@@ -40,6 +42,26 @@
     "notify_service": {
       "options": {
         "none": "No phone"
+      }
+    }
+  },
+  "services": {
+    "tune": {
+      "name": "Tune",
+      "description": "Tunes a speaker to a Static station, live. With no station and no step, it comes back to the station that speaker was last on.",
+      "fields": {
+        "entity_id": {
+          "name": "Speaker",
+          "description": "One of the speakers chosen on the Configure screen. Leave empty when only one is chosen."
+        },
+        "station": {
+          "name": "Station",
+          "description": "A station by Static's own name, such as News, Nature or Sleep."
+        },
+        "step": {
+          "name": "Step",
+          "description": "How many places to move along the dial: 1 for the next station, -1 for the one before. The dial does not wrap."
+        }
       }
     }
   }
