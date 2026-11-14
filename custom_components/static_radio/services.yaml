@@ -1,0 +1,19 @@
+# The actions this integration adds. Their names and descriptions are in
+# translations/en.json.
+tune:
+  fields:
+    entity_id:
+      selector:
+        entity:
+          domain: media_player
+    station:
+      example: News
+      selector:
+        text:
+    step:
+      example: 1
+      selector:
+        number:
+          min: -20
+          max: 20
+          mode: box

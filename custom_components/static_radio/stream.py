@@ -1,0 +1,352 @@
+"""A station's stream, served to the speaker that is tuned to it.
+
+This is the one place a speaker gets Static's sound from. A speaker is handed
+an address here (stream_path), and for as long as it keeps reading from it,
+it is sent one endless FLAC stream of the station: station_audio.py makes the
+samples, cut to Static's timeline, and one ffmpeg encodes them. The model is
+the ffmpeg proxy view in Home Assistant's own ESPHome integration.
+
+What this file is careful about:
+
+- No sign-in, because a speaker cannot sign in. So the address holds a long
+  random key, one per speaker, and a caller from outside the home network is
+  refused whatever it holds.
+- One stream per speaker. A new connection with a speaker's key ends the one
+  before it.
+- Every connection starts at the live moment and the stream never says how
+  long it is, so a speaker that stops and starts again lands on live.
+- An episode is asked of its show's host only once the connection has taken
+  the stream's first bytes and stayed. A player looking a new address over
+  before it plays opens and drops a connection in well under that time, and
+  that must not count as a listen at the show's host.
+- A reader that stops reading is dropped, so a paused speaker has to
+  reconnect, and reconnecting lands on live.
+- The "icy-name" header carries the station's name. Music Assistant reads it
+  as the sign of a radio station, which is what stops it offering to seek.
+
+Nothing is written to disk: samples go from ffmpeg's pipe to the socket.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import contextlib
+import ipaddress
+import logging
+import secrets
+from http import HTTPStatus
+from typing import TYPE_CHECKING
+
+from aiohttp import web
+from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
+from homeassistant.helpers.http import HomeAssistantView
+from homeassistant.loader import async_get_integration
+
+from .const import CONF_ANNOUNCE, CONF_LEADS_MS, DEFAULT_LEAD_MS, DOMAIN
+from .coordinator import now_ms
+from .episode import EpisodeRelayView, episode_opener
+from .opening import opening_for
+from .schedule import Episode, Schedule
+from .station_audio import CHANNELS, SAMPLE_RATE, Listen, OpenEpisode, Source, station_pcm
+
+if TYPE_CHECKING:
+    from . import StaticConfigEntry
+
+_LOGGER = logging.getLogger(__name__)
+
+CONF_STREAM_KEYS = "stream_keys"  # in the entry's data: speaker entity id -> its key
+STREAM_URL = "/api/static_radio/stream/{key}/{filename}"
+SETTLE_S = 0.3  # how long a connection must stay before an episode is asked for
+STALL_S = 20  # a reader that takes nothing for this long is dropped
+QUIET = "quiet"  # the query word that leaves the spoken opening out
+
+UNLOADED_FOR_S = 30  # how long with no entry loaded before open streams are ended
+
+_READ_BYTES = 16 * 1024
+# The widest own network that still counts as "the home network", by address family.
+_NARROWEST = {4: 16, 6: 48}
+_VIEW_KEY = f"{DOMAIN}.stream_view"
+
+
+def stream_path(
+    hass: HomeAssistant, entry: StaticConfigEntry, speaker: str, station_id: str, *, say: bool
+) -> str:
+    """The address a speaker is given for a station, without the host.
+
+    say is whether the stream may open with the station's name, spoken. A tune
+    asked for by voice passes False: the assistant has just said it.
+    """
+    keys: dict[str, str] = dict(entry.data.get(CONF_STREAM_KEYS, {}))
+    if speaker not in keys:
+        keys[speaker] = secrets.token_urlsafe(24)
+        hass.config_entries.async_update_entry(entry, data={**entry.data, CONF_STREAM_KEYS: keys})
+    path = STREAM_URL.format(key=keys[speaker], filename=f"{station_id}.flac")
+    return path if say else f"{path}?{QUIET}=1"
+
+
+type _Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+async def _own_networks(hass: HomeAssistant) -> list[_Network]:
+    """The networks this machine's own adapters are on.
+
+    A home network that has IPv6 usually gives every device a public address,
+    so "private" alone would turn away a speaker in the same room. An address
+    inside a network this machine is itself on is a neighbor, whatever its range.
+    """
+    if "network" not in hass.config.components:
+        return []
+    from homeassistant.components import network  # noqa: PLC0415
+
+    found: list[_Network] = []
+    for adapter in await network.async_get_adapters(hass):
+        if not adapter["enabled"]:
+            continue
+        for address in (*adapter["ipv4"], *adapter["ipv6"]):
+            with contextlib.suppress(ValueError):
+                found.append(
+                    ipaddress.ip_network(
+                        f"{address['address']}/{address['network_prefix']}", strict=False
+                    )
+                )
+    return found
+
+
+def _from_home(request: web.Request, own: list[_Network] | None = None) -> bool:
+    """True for a caller on this machine or the home network.
+
+    That is a loopback, private or link-local address, or any address inside
+    one of this machine's own networks (own).
+    """
+    try:
+        address = ipaddress.ip_address((request.remote or "").split("%")[0])
+    except ValueError:
+        return False
+    if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+    if address.is_loopback or address.is_private or address.is_link_local:
+        return True
+    # A network as wide as "everything" is a default route, not a neighborhood.
+    return any(
+        address.version == net.version
+        and net.prefixlen >= _NARROWEST[net.version]
+        and address in net
+        for net in own or ()
+    )
+
+
+def _ffmpeg_binary(hass: HomeAssistant) -> str:
+    """The ffmpeg Home Assistant is set to use, or the one on its path."""
+    if "ffmpeg" in hass.config.components:
+        # Imported here: its own requirement is only installed where it is set up.
+        from homeassistant.components import ffmpeg  # noqa: PLC0415
+
+        return str(ffmpeg.get_ffmpeg_manager(hass).binary)
+    return "ffmpeg"
+
+
+def _encode_command(binary: str) -> list[str]:
+    return [
+        binary, "-hide_banner", "-loglevel", "error", "-nostdin",
+        # Raw samples have nothing to find out, so do not look. Left to itself,
+        # ffmpeg 8.0 reads five seconds of input before it encodes any: nothing
+        # reaches the speaker while the opening is all there is, and by the time
+        # something does, the stream is behind the live moment it was cut for.
+        "-probesize", "32", "-analyzeduration", "0",
+        "-f", "s16le", "-ar", str(SAMPLE_RATE), "-ac", str(CHANNELS), "-i", "pipe:0",
+        "-c:a", "flac", "-compression_level", "2", "-flush_packets", "1",
+        "-f", "flac", "pipe:1",
+    ]  # fmt: skip
+
+
+def _held(opener: OpenEpisode, settled: asyncio.Event) -> OpenEpisode:
+    """The same opener, asking nothing of a show's host until the connection has settled."""
+
+    async def open_episode(episode: Episode, start_ms: int) -> Source:
+        await settled.wait()
+        return await opener(episode, start_ms)
+
+    return open_episode
+
+
+class StationStreamView(HomeAssistantView):
+    """Serves each tuned speaker its station."""
+
+    requires_auth = False
+    url = STREAM_URL
+    name = "api:static_radio:stream"
+
+    def __init__(self, hass: HomeAssistant, version: str) -> None:
+        self._hass = hass
+        self._version = version
+        self._serving: dict[str, asyncio.Task[object]] = {}  # speaker -> its connection
+
+    def _entry(self) -> StaticConfigEntry | None:
+        entries = self._hass.config_entries.async_loaded_entries(DOMAIN)
+        return entries[0] if entries else None
+
+    def _schedule(self) -> Schedule | None:
+        """The schedule in force now, for every open stream.
+
+        Asked afresh each time, and of whichever entry is loaded now: saving
+        the Configure screen reloads the integration under a stream that is
+        still playing, and that stream has to follow the new entry's schedule
+        and not keep the one it started with, which no longer updates.
+        """
+        entry = self._entry()
+        return entry.runtime_data.data if entry is not None else None
+
+    @property
+    def serving(self) -> bool:
+        """Whether any speaker is being served right now."""
+        return bool(self._serving)
+
+    @callback
+    def end_if_unloaded(self, _now: object = None) -> None:
+        """End every open stream if the integration is still not loaded.
+
+        Called a little after an unload. A reload has an entry back by then
+        and the streams play on. A removal or a switch-off does not, and a
+        speaker must not go on being served by an integration that is gone.
+        """
+        if self._entry() is not None:
+            return
+        for task in list(self._serving.values()):
+            task.cancel()
+
+    async def get(self, request: web.Request, key: str, filename: str) -> web.StreamResponse:
+        """One listen: from the live moment, until the speaker stops reading."""
+        entry = self._entry()
+        if entry is None or not _from_home(request, await _own_networks(self._hass)):
+            return web.Response(status=HTTPStatus.NOT_FOUND)
+        keys: dict[str, str] = entry.data.get(CONF_STREAM_KEYS, {})
+        speaker = next(
+            (who for who, theirs in keys.items() if secrets.compare_digest(theirs, key)), None
+        )
+        station_id = filename.removesuffix(".flac")
+        coordinator = entry.runtime_data
+        station = coordinator.data.station(station_id) if coordinator.data else None
+        if speaker is None or station is None or not filename.endswith(".flac"):
+            return web.Response(status=HTTPStatus.NOT_FOUND)
+
+        # One stream per speaker: this connection replaces the one before it.
+        before = self._serving.get(speaker)
+        if before is not None and not before.done():
+            before.cancel()
+        mine = asyncio.current_task()
+        if mine is not None:
+            self._serving[speaker] = mine
+
+        binary = _ffmpeg_binary(self._hass)
+        name = station.display_name
+        say = entry.options.get(CONF_ANNOUNCE, True) and QUIET not in request.query
+        settled = asyncio.Event()
+        listen = Listen(
+            station_id=station_id,
+            lead_ms=int(entry.options.get(CONF_LEADS_MS, {}).get(speaker, DEFAULT_LEAD_MS)),
+            now_ms=now_ms,
+            schedule=self._schedule,
+            open_episode=_held(
+                episode_opener(self._hass, async_get_clientsession(self._hass), self._version),
+                settled,
+            ),
+            ffmpeg=binary,
+            opening=opening_for(self._hass, binary, station) if say else b"",
+        )
+
+        response = web.StreamResponse(
+            headers={
+                "Content-Type": "audio/flac",
+                "Cache-Control": "no-store",
+                "icy-name": f"Static {name}".encode("ascii", "replace").decode("ascii"),
+            }
+        )
+        await response.prepare(request)
+        try:
+            await self._serve(listen, response, settled)
+        except ConnectionResetError, ConnectionError, TimeoutError:
+            pass  # the speaker stopped listening, or stopped reading
+        finally:
+            if self._serving.get(speaker) is mine:
+                del self._serving[speaker]
+        return response
+
+    async def _serve(
+        self, listen: Listen, response: web.StreamResponse, settled: asyncio.Event
+    ) -> None:
+        """Samples into the encoder, and the encoder's output to the speaker."""
+        encoder = await asyncio.create_subprocess_exec(
+            *_encode_command(listen.ffmpeg),
+            stdin=asyncio.subprocess.PIPE,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.DEVNULL,
+        )
+        assert encoder.stdin is not None and encoder.stdout is not None  # noqa: S101
+        samples = station_pcm(listen)
+
+        async def feed() -> None:
+            assert encoder.stdin is not None  # noqa: S101
+            try:
+                async for chunk in samples:
+                    encoder.stdin.write(chunk)
+                    await encoder.stdin.drain()
+            except BrokenPipeError, ConnectionResetError:
+                pass  # the encoder has gone: the speaker stopped listening
+            except Exception:
+                _LOGGER.exception("The stream for %s stopped", listen.station_id)
+            finally:
+                # With its input closed the encoder ends, and so does the
+                # connection: a player that is still there connects again.
+                with contextlib.suppress(OSError):
+                    encoder.stdin.close()
+
+        feeding = asyncio.create_task(feed())
+        settle: asyncio.TimerHandle | None = None
+        try:
+            while data := await encoder.stdout.read(_READ_BYTES):
+                async with asyncio.timeout(STALL_S):
+                    await response.write(data)
+                if settle is None:
+                    settle = self._hass.loop.call_later(SETTLE_S, settled.set)
+        finally:
+            if settle is not None:
+                settle.cancel()
+            feeding.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await feeding
+            await samples.aclose()
+            if encoder.returncode is None:
+                with contextlib.suppress(ProcessLookupError):
+                    encoder.kill()
+                await encoder.wait()
+
+
+def prepare_openings(hass: HomeAssistant, entry: StaticConfigEntry) -> None:
+    """Have every station's name spoken ahead of time, so no first listen opens silent."""
+    if not entry.options.get(CONF_ANNOUNCE, True) or entry.runtime_data.data is None:
+        return
+    binary = _ffmpeg_binary(hass)
+    for station in entry.runtime_data.data.stations:
+        opening_for(hass, binary, station)
+
+
+async def async_setup_stream(hass: HomeAssistant) -> None:
+    """Register the stream's address, once for the life of Home Assistant."""
+    if _VIEW_KEY in hass.data:
+        return
+    integration = await async_get_integration(hass, DOMAIN)
+    view = StationStreamView(hass, str(integration.version))
+    hass.data[_VIEW_KEY] = view
+    hass.http.register_view(view)
+    hass.http.register_view(EpisodeRelayView(hass, str(integration.version)))
+
+
+@callback
+def streams_after_unload(hass: HomeAssistant) -> None:
+    """The entry has unloaded: look again shortly, and end the streams if it stayed that way."""
+    view: StationStreamView | None = hass.data.get(_VIEW_KEY)
+    # With Home Assistant stopping, every connection is about to end anyway.
+    if view is not None and view.serving and not hass.is_stopping:
+        async_call_later(hass, UNLOADED_FOR_S, view.end_if_unloaded)

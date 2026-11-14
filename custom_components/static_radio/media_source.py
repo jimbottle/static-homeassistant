@@ -15,9 +15,11 @@ entry. The now-playing sensors carry the same two links in a form a dashboard
 can make clickable.
 
 There is no episode list: Static is live radio, with no choosing, seeking or
-skipping. And the list is for looking, for now. A station cannot be played
-from here until the station stream exists, so nothing is marked playable and
-resolving anything is refused. No audio address ever leaves this file.
+skipping. A station can be played from here on a speaker: what is handed
+over is the address of that speaker's own stream of the station (stream.py),
+live, the same one every other way of tuning uses. It is never an episode's
+address, and nothing plays in the browser itself, which is not a speaker
+and could be anywhere.
 """
 
 from __future__ import annotations
@@ -32,11 +34,14 @@ from homeassistant.components.media_source import (
     Unresolvable,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 
 from .const import DOMAIN, TITLE
 from .coordinator import StaticCoordinator
 from .feed import support_links
+from .play import stream_url
 from .schedule import Episode, Station
+from .tune import SELECTORS_KEY
 
 
 async def async_get_media_source(hass: HomeAssistant) -> StaticMediaSource:
@@ -61,8 +66,26 @@ class StaticMediaSource(MediaSource):
         return None
 
     async def async_resolve_media(self, item: MediaSourceItem) -> PlayMedia:
-        """Refused: playing a station waits for the station stream."""
-        raise Unresolvable("Static Radio stations cannot be played from the media browser yet")
+        """The address of a station's stream for the speaker it is to play on."""
+        entries = self.hass.config_entries.async_loaded_entries(DOMAIN)
+        coordinator = self._coordinator()
+        station = coordinator.data.station(item.identifier) if coordinator is not None else None
+        if not entries or coordinator is None or station is None:
+            raise Unresolvable("That is not a Static Radio station")
+        if coordinator.live(station.station_id) is None:
+            raise Unresolvable("Static's schedule is not available right now")
+        speaker = item.target_media_player
+        if not speaker:
+            raise Unresolvable("Choose a speaker to play Static Radio on")
+        try:
+            url = stream_url(self.hass, entries[0], speaker, station, say=True)
+        except HomeAssistantError as err:
+            raise Unresolvable(str(err)) from err
+        # A speaker that has a selector shows this station on it from now on.
+        selector = self.hass.data.get(SELECTORS_KEY, {}).get(speaker)
+        if selector is not None:
+            selector.note(station)
+        return PlayMedia(url, "audio/flac")
 
     async def async_browse_media(self, item: MediaSourceItem) -> BrowseMediaSource:
         """The list of stations, or one station with what is on and its links."""
@@ -112,7 +135,7 @@ class StaticMediaSource(MediaSource):
             media_class=MediaClass.CHANNEL,
             media_content_type=MediaType.CHANNEL,
             title=_now_playing(station, episode),
-            can_play=False,
+            can_play=True,
             can_expand=True,
             # Art that is not on the web is built into Static's own apps: no picture then.
             thumbnail=episode.image_url if episode.image_url.startswith("https://") else None,
@@ -131,14 +154,14 @@ def _now_playing(station: Station, episode: Episode) -> str:
 
 
 def _station_entry(station: Station) -> BrowseMediaSource:
-    """A station in the list: its name only, and it opens."""
+    """A station in the list: its name only. It plays, and it opens."""
     return BrowseMediaSource(
         domain=DOMAIN,
         identifier=station.station_id,
         media_class=MediaClass.CHANNEL,
         media_content_type=MediaType.CHANNEL,
         title=station.display_name,
-        can_play=False,
+        can_play=True,
         can_expand=True,
     )
 

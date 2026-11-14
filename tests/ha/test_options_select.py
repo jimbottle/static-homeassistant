@@ -26,6 +26,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.static_radio.api import SCHEDULE_URL, Response
 from custom_components.static_radio.const import (
+    CONF_ANNOUNCE,
     CONF_LEADS_MS,
     CONF_NOTIFY_SERVICE,
     CONF_SPEAKERS,
@@ -53,6 +54,13 @@ def _no_feeds() -> Iterator[None]:
 @pytest.fixture(autouse=True)
 def _inside_the_day(freezer: FrozenDateTimeFactory) -> None:
     freezer.move_to(START)
+
+
+@pytest.fixture(autouse=True)
+def played(hass: HomeAssistant) -> list[ServiceCall]:
+    """Stands in for the speakers: choosing a station now asks one to play."""
+    calls: list[ServiceCall] = async_mock_service(hass, "media_player", "play_media")
+    return calls
 
 
 def _entry(hass: HomeAssistant, options: dict[str, object]) -> MockConfigEntry:
@@ -103,7 +111,7 @@ async def test_configure_takes_speakers_a_lead_for_each_and_a_phone(
     leads_form = second["data_schema"]
     assert leads_form is not None
     defaults = {str(key): key.default() for key in leads_form.schema}
-    assert defaults == {SPEAKER: 1000, OTHER: 1000}
+    assert defaults == {SPEAKER: 1300, OTHER: 1300}
 
     done = await hass.config_entries.options.async_configure(
         second["flow_id"], {SPEAKER: 1200, OTHER: 850}
@@ -113,6 +121,7 @@ async def test_configure_takes_speakers_a_lead_for_each_and_a_phone(
     assert entry.options == {
         CONF_SPEAKERS: [SPEAKER, OTHER],
         CONF_NOTIFY_SERVICE: "mobile_app_phone",
+        CONF_ANNOUNCE: True,
         CONF_LEADS_MS: {SPEAKER: 1200, OTHER: 850},
     }
     # Saving reloads the entry, and each speaker now has its selector.
@@ -169,7 +178,7 @@ async def test_configure_with_no_speakers_and_no_phone_saves_nothing_to_tune(
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert done["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {CONF_SPEAKERS: [], CONF_LEADS_MS: {}}
+    assert entry.options == {CONF_SPEAKERS: [], CONF_ANNOUNCE: True, CONF_LEADS_MS: {}}
 
 
 async def test_a_lead_outside_the_range_is_refused(

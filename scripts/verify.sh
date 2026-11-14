@@ -23,9 +23,12 @@ step pure-without-ha uv run --frozen --isolated --only-group pure \
   pytest -q -p no:cacheprovider -W ignore::pytest.PytestConfigWarning
 
 echo "== uv run pytest -q"
-out="$(uv run --frozen pytest -q 2>&1)"; rc=$?
-echo "$out"
-[ $rc -eq 0 ] || fail="$fail pytest"
-tests="$(printf '%s\n' "$out" | tail -1)"
+# Shown as it runs, and kept for the verdict line. Held back until the end, a
+# run that hangs says nothing at all, including where it is stuck.
+log="$(mktemp)"
+uv run --frozen pytest -q 2>&1 | tee "$log"; rc=${PIPESTATUS[0]}
+[ "$rc" -eq 0 ] || fail="$fail pytest"
+tests="$(tail -1 "$log")"
+rm -f "$log"
 
 if [ -z "$fail" ]; then echo "VERIFY OK: $tests"; else echo "VERIFY FAILED (${fail# }): $tests"; exit 1; fi

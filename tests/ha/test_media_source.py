@@ -74,12 +74,12 @@ async def test_the_browser_lists_every_station_by_name_and_not_what_is_on(
         assert child.title == station.display_name
         # Now-playing without its links is not shown: no show, no episode, no art.
         assert child.thumbnail is None
-        # It opens to show what is on; nothing plays until the stream exists.
+        # It plays on a speaker, and it opens to show what is on.
         assert child.can_expand is True
-        assert child.can_play is False
+        assert child.can_play is True
 
 
-async def test_no_audio_address_is_handed_out(
+async def test_nothing_plays_in_the_browser_and_no_episode_address_is_handed_out(
     hass: HomeAssistant,
     entry: MockConfigEntry,
     aioclient_mock: AiohttpClientMocker,
@@ -141,7 +141,7 @@ async def test_a_station_opens_to_what_is_on_with_both_links_beneath(
     assert episode.feed_title in station.title
     assert episode.title in station.title
     assert station.thumbnail == episode.image_url
-    assert station.can_play is False
+    assert station.can_play is True
     assert station.children is not None
     assert [child.title for child in station.children] == [
         f"Episode page: {episode.episode_url}",
@@ -223,3 +223,40 @@ async def test_the_browser_is_empty_while_the_integration_is_not_loaded(
 
     root = await media_source.async_browse_media(hass, ROOT)
     assert root.children == []
+
+
+async def test_a_station_played_on_a_speaker_is_that_speakers_own_live_stream(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+) -> None:
+    await _set_up(hass, entry, aioclient_mock, schedule_text)
+    speaker = "media_player.kitchen_speaker"
+
+    play = await media_source.async_resolve_media(hass, f"{ROOT}/news_01", speaker)
+
+    key = entry.data["stream_keys"][speaker]
+    assert play.url == f"http://10.10.10.10:8123/api/static_radio/stream/{key}/news_01.flac"
+    assert play.mime_type == "audio/flac"
+    # Another speaker gets a stream of its own, and neither is an episode's address.
+    other = await media_source.async_resolve_media(hass, f"{ROOT}/news_01", "media_player.den")
+    assert other.url != play.url
+    schedule = parse_schedule(json.loads(schedule_text))
+    audio = {e.audio_url for station in schedule.stations for e in station.episodes}
+    assert play.url not in audio
+
+
+@pytest.mark.parametrize("identifier", ["no_such_station", "news_01/episode", "news_01/support"])
+async def test_only_a_station_can_be_played(
+    hass: HomeAssistant,
+    entry: MockConfigEntry,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    identifier: str,
+) -> None:
+    await _set_up(hass, entry, aioclient_mock, schedule_text)
+    with pytest.raises(media_source.Unresolvable):
+        await media_source.async_resolve_media(
+            hass, f"{ROOT}/{identifier}", "media_player.kitchen_speaker"
+        )

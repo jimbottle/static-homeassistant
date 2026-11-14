@@ -72,7 +72,7 @@ async def _resolve(hass: HomeAssistant, host: str) -> list[str]:
     return [str(info[4][0]) for info in found]
 
 
-async def _public_address(hass: HomeAssistant, host: str) -> str:
+async def public_address(hass: HomeAssistant, host: str) -> str:
     """One checked address for the host. Refuses unless every address is public."""
     try:
         addresses = await _resolve(hass, host)
@@ -102,7 +102,7 @@ def feed_fetch(hass: HomeAssistant, session: aiohttp.ClientSession) -> Fetch:
         """Ask one address. A Response to return, or the URL it redirects to."""
         if url.scheme not in ("http", "https") or not url.host or url.user or url.password:
             raise FeedRefusedError("not a plain web address")
-        address = await _public_address(hass, url.host)
+        address = await public_address(hass, url.host)
         # Connect to the checked address, and name the host for the server
         # and for the certificate check.
         named = url.host if url.is_default_port() else f"{url.host}:{url.port}"

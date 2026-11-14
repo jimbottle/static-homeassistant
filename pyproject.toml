@@ -70,3 +70,6 @@ testpaths = ["tests"]
 pythonpath = ["."]
 # The Home Assistant harness has async fixtures that every test gets.
 asyncio_mode = "auto"
+# A test still running after this long prints where every thread is stuck,
+# so a hang on a machine nobody can log in to still says what it was doing.
+faulthandler_timeout = 120

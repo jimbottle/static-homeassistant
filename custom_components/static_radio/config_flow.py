@@ -28,6 +28,7 @@ from homeassistant.core import callback
 from homeassistant.helpers import selector
 
 from .const import (
+    CONF_ANNOUNCE,
     CONF_LEADS_MS,
     CONF_NOTIFY_SERVICE,
     CONF_SPEAKERS,
@@ -72,7 +73,10 @@ class StaticOptionsFlow(OptionsFlowWithReload):
         """Which speakers, and which phone."""
         options = self.config_entry.options
         if user_input is not None:
-            self._chosen = {CONF_SPEAKERS: list(user_input.get(CONF_SPEAKERS, []))}
+            self._chosen = {
+                CONF_SPEAKERS: list(user_input.get(CONF_SPEAKERS, [])),
+                CONF_ANNOUNCE: bool(user_input.get(CONF_ANNOUNCE, True)),
+            }
             phone = user_input.get(CONF_NOTIFY_SERVICE, NO_PHONE)
             if phone != NO_PHONE:
                 self._chosen[CONF_NOTIFY_SERVICE] = phone
@@ -105,6 +109,9 @@ class StaticOptionsFlow(OptionsFlowWithReload):
                         translation_key=CONF_NOTIFY_SERVICE,
                     )
                 ),
+                vol.Optional(
+                    CONF_ANNOUNCE, default=bool(options.get(CONF_ANNOUNCE, True))
+                ): selector.BooleanSelector(),
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema)
