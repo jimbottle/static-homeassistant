@@ -17,8 +17,14 @@ Three things here are Static's rules and not choices:
   This is the reference player's rule (ProtocolHandler.pm, MAX_RETRIES and
   RETRY_S in static-squeezebox).
 
-Sound goes out as fast as the speaker reads it. Only silence that stands in
-for an episode still on its way is held to the clock, and whatever part of
+Sound goes out as fast as the speaker reads it, up to MAX_AHEAD_MS past the
+clock and no further. A player keeps some seconds in hand to play smoothly,
+which Static's guide allows ("Buffering ahead to play smoothly is fine;
+storing files to play later isn't"). A reader that would take a whole episode
+in a few seconds is not buffering, and every second it takes is downloaded
+from the show's host, so it is held to about the pace of listening.
+
+Silence that stands in for an episode still on its way is held to the clock, and whatever part of
 the episode that silence covered is dropped when it arrives, so a slow host
 costs a listener some of the episode and never their place in it.
 
@@ -35,7 +41,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable
+from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -56,6 +62,11 @@ STEP_MS = 100  # the size silence is sent in, and how often a slow episode is ch
 # Silence stands in for a late episode only once the speaker holds less than
 # this much of the stream ahead of the clock. Until then, waiting costs nothing.
 FILL_BELOW_MS = 2000
+# The furthest past the clock a stream may run. Music Assistant holds 15 s of
+# a radio stream and its speakers' feed up to 30 s more, so this starves no
+# player of what it buffers and stops a reader that takes all it is given.
+MAX_AHEAD_MS = 60_000
+PIECE_MS = 1000  # silence is sent in pieces this long, never as one block
 URL_TIMEOUT_S = 30  # how long ffmpeg waits on an address it reads from itself
 NO_SCHEDULE_MS = 1000  # with no usable schedule, how much silence before looking again
 
@@ -113,6 +124,17 @@ class Listen:
 
 def silence(ms: int) -> bytes:
     return bytes(ms * BYTES_PER_MS)
+
+
+def _quiet(count: int) -> Iterator[bytes]:
+    """count bytes of silence, a piece at a time.
+
+    A failed episode leaves the rest of its slot silent, and a slot can be an
+    hour: as one block that is hundreds of megabytes held in memory at once.
+    """
+    piece = PIECE_MS * BYTES_PER_MS
+    for at in range(0, count, piece):
+        yield bytes(min(piece, count - at))
 
 
 class _Sent:
@@ -318,8 +340,8 @@ async def _episode_pcm(listen: Listen, sent: _Sent, segment: Segment) -> AsyncGe
                 yield chunk
         if not slot.failed:
             break  # the file ended, early or on time: stay quiet until the next one
-    if slot.left > 0:
-        yield bytes(slot.left)
+    for piece in _quiet(slot.left):
+        yield piece
 
 
 async def station_pcm(listen: Listen) -> AsyncGenerator[bytes]:
@@ -335,6 +357,11 @@ async def station_pcm(listen: Listen) -> AsyncGenerator[bytes]:
             async for chunk in chunks:
                 sent.bytes += len(chunk)
                 yield chunk
+
+    async def not_too_far_ahead() -> None:
+        """Wait here while the stream is as far past the clock as it may run."""
+        while sent.ahead_ms() > MAX_AHEAD_MS:
+            await asyncio.sleep(STEP_MS / 1000)
 
     opening = listen.opening[: len(listen.opening) - len(listen.opening) % BYTES_PER_MS]
     opening += silence(max(0, OPENING_MS - len(opening) // BYTES_PER_MS))
@@ -359,6 +386,8 @@ async def station_pcm(listen: Listen) -> AsyncGenerator[bytes]:
             async with contextlib.aclosing(counted(_episode_pcm(listen, sent, segment))) as pcm:
                 async for chunk in pcm:
                     yield chunk
-        if segment.silence_ms:
-            sent.bytes += segment.silence_ms * BYTES_PER_MS
-            yield silence(segment.silence_ms)
+                    await not_too_far_ahead()
+        for piece in _quiet(segment.silence_ms * BYTES_PER_MS):
+            sent.bytes += len(piece)
+            yield piece
+            await not_too_far_ahead()

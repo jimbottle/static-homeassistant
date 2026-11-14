@@ -45,6 +45,8 @@ It follows the ground rules in Static's [developer guide](https://staticradio.ap
 
 - Every episode is fetched from the show's own host, by its own address every time, by
   your own Home Assistant, as you listen. Nothing is written to disk, cached or re-hosted.
+- A speaker is given at most a minute more than it has had time to play. A player keeps a
+  few seconds in hand to play smoothly; nothing is fetched to be kept.
 - It stays live. There is no seeking, skipping or pausing: stopping and starting again
   lands on the live moment. Bulletins play where they fall, for at most 30 seconds.
 - An episode that fails is tried again twice, then left until the next one starts on time.
