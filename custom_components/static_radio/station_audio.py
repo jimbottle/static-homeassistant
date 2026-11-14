@@ -22,6 +22,10 @@ for an episode still on its way is held to the clock, and whatever part of
 the episode that silence covered is dropped when it arrives, so a slow host
 costs a listener some of the episode and never their place in it.
 
+Every piece here that holds a process or a download is closed by name when
+the stream ends (contextlib.aclosing), never left for the garbage collector:
+a speaker that stops listening must stop the fetching at once.
+
 Nothing from Home Assistant is imported: the clock, the schedule and the
 episode's bytes are handed in, so this runs in a test with a generated tone.
 """
@@ -161,6 +165,7 @@ class _Decoder:
         self._feeder: asyncio.Task[None] | None = None
         self._fetches_itself = False
         self._release: Callable[[], None] | None = None
+        self._chunks: AsyncIterator[bytes] | None = None
         self.failed = False  # the host let us down, as opposed to the file ending
 
     def _warn(self, err: object) -> None:
@@ -178,6 +183,7 @@ class _Decoder:
             stderr=asyncio.subprocess.DEVNULL,
         )
         if source.chunks is not None:
+            self._chunks = source.chunks
             self._feeder = asyncio.create_task(self._feed(source.chunks))
 
     async def _feed(self, chunks: AsyncIterator[bytes]) -> None:
@@ -219,6 +225,12 @@ class _Decoder:
             self._feeder.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await self._feeder
+        # End the download now. Left to itself it would stay open until the
+        # garbage collector happened to find it.
+        close = getattr(self._chunks, "aclose", None)
+        if close is not None:
+            with contextlib.suppress(Exception):
+                await close()
         if self._process is not None and self._process.returncode is None:
             with contextlib.suppress(ProcessLookupError):
                 self._process.kill()
@@ -244,7 +256,7 @@ class _Slot:
         return bytes(step)
 
 
-async def _pause(sent: _Sent, slot: _Slot) -> AsyncIterator[bytes]:
+async def _pause(sent: _Sent, slot: _Slot) -> AsyncGenerator[bytes]:
     """The wait before a retry, on the clock, covered with silence only if needed."""
     for _ in range(RETRY_MS // STEP_MS):
         if slot.left <= 0:
@@ -256,7 +268,7 @@ async def _pause(sent: _Sent, slot: _Slot) -> AsyncIterator[bytes]:
 
 async def _one_try(
     listen: Listen, sent: _Sent, segment: Segment, slot: _Slot
-) -> AsyncIterator[bytes]:
+) -> AsyncGenerator[bytes]:
     """Decode the episode from where the slot has got to, until it ends or the slot does."""
     at_ms = segment.start_ms + segment.audio_ms - slot.left // BYTES_PER_MS
     decoder = _Decoder(listen, segment.episode, at_ms)
@@ -291,17 +303,19 @@ async def _one_try(
         slot.failed = decoder.failed
 
 
-async def _episode_pcm(listen: Listen, sent: _Sent, segment: Segment) -> AsyncIterator[bytes]:
+async def _episode_pcm(listen: Listen, sent: _Sent, segment: Segment) -> AsyncGenerator[bytes]:
     """Exactly segment.audio_ms of sound: the episode, and silence where it fails."""
     slot = _Slot(left=segment.audio_ms * BYTES_PER_MS)
     for attempt in range(1 + MAX_RETRIES):
         if attempt:
-            async for chunk in _pause(sent, slot):
-                yield chunk
+            async with contextlib.aclosing(_pause(sent, slot)) as pause:
+                async for chunk in pause:
+                    yield chunk
         if slot.left < MIN_AUDIO_MS * BYTES_PER_MS:
             break
-        async for chunk in _one_try(listen, sent, segment, slot):
-            yield chunk
+        async with contextlib.aclosing(_one_try(listen, sent, segment, slot)) as attempt_pcm:
+            async for chunk in attempt_pcm:
+                yield chunk
         if not slot.failed:
             break  # the file ended, early or on time: stay quiet until the next one
     if slot.left > 0:
@@ -316,10 +330,11 @@ async def station_pcm(listen: Listen) -> AsyncGenerator[bytes]:
     """
     sent = _Sent(listen.now_ms)
 
-    async def counted(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
-        async for chunk in chunks:
-            sent.bytes += len(chunk)
-            yield chunk
+    async def counted(chunks: AsyncGenerator[bytes]) -> AsyncGenerator[bytes]:
+        async with contextlib.aclosing(chunks):
+            async for chunk in chunks:
+                sent.bytes += len(chunk)
+                yield chunk
 
     opening = listen.opening[: len(listen.opening) - len(listen.opening) % BYTES_PER_MS]
     opening += silence(max(0, OPENING_MS - len(opening) // BYTES_PER_MS))
@@ -341,8 +356,9 @@ async def station_pcm(listen: Listen) -> AsyncGenerator[bytes]:
             yield silence(NO_SCHEDULE_MS)
             continue
         if segment.audio_ms:
-            async for chunk in counted(_episode_pcm(listen, sent, segment)):
-                yield chunk
+            async with contextlib.aclosing(counted(_episode_pcm(listen, sent, segment))) as pcm:
+                async for chunk in pcm:
+                    yield chunk
         if segment.silence_ms:
             sent.bytes += segment.silence_ms * BYTES_PER_MS
             yield silence(segment.silence_ms)

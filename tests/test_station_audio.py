@@ -110,6 +110,7 @@ class Host:
         self.slow_s = slow_s
         self.asked: list[tuple[str, int]] = []
         self.paths: dict[str, str] = {}  # episodes ffmpeg is to fetch itself
+        self.downloading = 0  # downloads open right now
 
     async def open(self, ep: Episode, start_ms: int) -> Source:
         self.asked.append((ep.episode_id, start_ms))
@@ -122,12 +123,16 @@ class Host:
         return Source(chunks=self._chunks(ep, start_ms))
 
     async def _chunks(self, ep: Episode, start_ms: int) -> AsyncIterator[bytes]:
-        data = self.files[ep.episode_id]
-        # A constant-bitrate tone: a time is the same share of the bytes.
-        made_ms = len(data) * 8 // 64
-        at = len(data) * min(start_ms, made_ms) // max(made_ms, 1)
-        for i in range(at, len(data), 4096):
-            yield data[i : i + 4096]
+        self.downloading += 1
+        try:
+            data = self.files[ep.episode_id]
+            # A constant-bitrate tone: a time is the same share of the bytes.
+            made_ms = len(data) * 8 // 64
+            at = len(data) * min(start_ms, made_ms) // max(made_ms, 1)
+            for i in range(at, len(data), 4096):
+                yield data[i : i + 4096]
+        finally:
+            self.downloading -= 1
 
 
 def collect(listen: Listen, ms: int) -> bytes:
@@ -378,3 +383,26 @@ def test_ffmpeg_seeks_in_a_file_at_a_web_address_on_this_machine(
     assert host.asked == [("one", 2500)]  # heard at the first try: no failure, no retry
     at = OPENING_MS
     assert pitch(part(pcm, at + 200, at + 3300)) == pytest.approx(660, abs=8)
+
+
+def test_when_the_speaker_stops_listening_the_download_stops_at_once() -> None:
+    """Not whenever the garbage collector gets to it: the show's host is still sending."""
+    host = Host({"one": tone(440, 20_000), "two": tone(880, 3000)})
+    schedule = schedule_of(
+        episode("one", 20_000), episode("two", 3000), first_starts_ms=heard_first_ms(0)
+    )
+    seen: list[int] = []
+
+    async def listen_briefly() -> None:
+        stream = station_pcm(listen_to(schedule, host))
+        got = 0
+        async for chunk in stream:
+            got += len(chunk)
+            if got >= (OPENING_MS + 1500) * BYTES_PER_MS:
+                break
+        seen.append(host.downloading)  # mid-episode: the download is open
+        await stream.aclose()
+        seen.append(host.downloading)  # and closed the moment the stream is
+
+    asyncio.run(asyncio.wait_for(listen_briefly(), timeout=60))
+    assert seen == [1, 0]

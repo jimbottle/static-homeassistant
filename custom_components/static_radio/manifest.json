@@ -4,6 +4,7 @@
   "after_dependencies": [
     "assist_pipeline",
     "ffmpeg",
+    "network",
     "tts"
   ],
   "codeowners": [
