@@ -69,7 +69,9 @@ def tone() -> bytes:
             "mp3",
             "pipe:1",
     ]  # fmt: skip
-    return subprocess.run(command, capture_output=True, check=True).stdout  # noqa: S603
+    return subprocess.run(  # noqa: S603
+        command, capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120
+    ).stdout
 
 
 @pytest.fixture(autouse=True)

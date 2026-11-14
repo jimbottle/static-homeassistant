@@ -75,11 +75,13 @@ Tuned = tuple[TestClient[Any, Any], MockConfigEntry, AiohttpClientMocker]
 
 def _tone(ms: int, extra: tuple[str, ...] = ("-b:a", "64k", "-f", "mp3")) -> bytes:
     command = [
-        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error",
+        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
         "-f", "lavfi", "-i", f"sine=frequency=440:sample_rate=44100:duration={ms / 1000}",
         *extra, "pipe:1",
     ]  # fmt: skip
-    return subprocess.run(command, capture_output=True, check=True).stdout  # noqa: S603
+    return subprocess.run(  # noqa: S603
+        command, capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120
+    ).stdout
 
 
 @pytest.fixture(scope="module")
@@ -157,10 +159,12 @@ async def _read(
 def _samples(flac: bytes) -> array[int]:
     """The left channel of a FLAC stream, cut off wherever it was."""
     command = [
-        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "quiet", "-i", "pipe:0",
+        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "quiet", "-nostdin", "-i", "pipe:0",
         "-ac", "2", "-ar", str(SAMPLE_RATE), "-f", "s16le", "pipe:1",
     ]  # fmt: skip
-    pcm = subprocess.run(command, input=flac, capture_output=True, check=False).stdout  # noqa: S603
+    pcm = subprocess.run(  # noqa: S603
+        command, input=flac, capture_output=True, check=False, timeout=120
+    ).stdout
     return array("h", pcm[: len(pcm) - len(pcm) % 4])[::2]
 
 

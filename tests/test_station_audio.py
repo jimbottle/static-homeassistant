@@ -60,7 +60,9 @@ def tone(hz: int, ms: int) -> bytes:
             "mp3",
             "pipe:1",
     ]  # fmt: skip
-    return subprocess.run(command, capture_output=True, check=True).stdout  # noqa: S603
+    return subprocess.run(  # noqa: S603
+        command, capture_output=True, check=True, stdin=subprocess.DEVNULL, timeout=120
+    ).stdout
 
 
 def episode(name: str, duration_ms: int, *, bulletin: bool = False) -> Episode:
@@ -143,7 +145,8 @@ def collect(listen: Listen, ms: int) -> bytes:
             await stream.aclose()
         return bytes(out[: ms * BYTES_PER_MS])
 
-    return asyncio.run(run())
+    # A stream that stalls must fail its test, not hold the whole run up.
+    return asyncio.run(asyncio.wait_for(run(), timeout=120))
 
 
 def listen_to(schedule: Schedule | None, host: Host, *, clock=lambda: NOW_MS) -> Listen:  # type: ignore[no-untyped-def]
@@ -285,11 +288,11 @@ def test_a_file_ffmpeg_fetches_itself_starts_partway_even_with_its_index_at_the_
     """An M4A as ffmpeg writes it by default: the index after the audio."""
     made = tmp_path / "one.m4a"
     command = [
-        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error",
+        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
         "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=44100:duration=6",
         "-c:a", "aac", str(made),
     ]  # fmt: skip
-    subprocess.run(command, check=True)  # noqa: S603
+    subprocess.run(command, check=True, stdin=subprocess.DEVNULL, timeout=120)  # noqa: S603
     host = Host({"two": tone(880, 3000)})
     host.paths["one"] = str(made)
     schedule = schedule_of(
@@ -355,11 +358,11 @@ def test_ffmpeg_seeks_in_a_file_at_a_web_address_on_this_machine(
         request.getfixturevalue("socket_enabled")
     made = tmp_path / "one.m4a"
     command = [
-        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error",
+        FFMPEG or "ffmpeg", "-hide_banner", "-loglevel", "error", "-nostdin",
         "-f", "lavfi", "-i", "sine=frequency=660:sample_rate=44100:duration=6",
         "-c:a", "aac", str(made),
     ]  # fmt: skip
-    subprocess.run(command, check=True)  # noqa: S603
+    subprocess.run(command, check=True, stdin=subprocess.DEVNULL, timeout=120)  # noqa: S603
     handler = type("OneFile", (_RangedFile,), {"data": made.read_bytes()})
     server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
