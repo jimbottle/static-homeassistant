@@ -8,6 +8,7 @@ the decoding and encoding. Nothing reaches a network and no episode is used.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import itertools
 import json
 import os
@@ -17,6 +18,7 @@ import subprocess
 import sys
 from array import array
 from collections.abc import Iterator
+from datetime import timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -25,7 +27,11 @@ from unittest.mock import patch
 import pytest
 from aiohttp.test_utils import TestClient
 from homeassistant.core import HomeAssistant
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    async_fire_time_changed,
+)
 from pytest_homeassistant_custom_component.test_util.aiohttp import (
     AiohttpClientMocker,
     AiohttpClientMockResponse,
@@ -317,3 +323,62 @@ async def test_with_no_text_to_speech_the_opening_is_silence(
     assert opening.opening_for(hass, FFMPEG or "ffmpeg", station) == b""
     await hass.async_block_till_done(wait_background_tasks=True)
     assert opening.opening_for(hass, FFMPEG or "ffmpeg", station) == b""
+
+
+OWN = [ipaddress.ip_network("2606:4700:1:2::/64"), ipaddress.ip_network("0.0.0.0/0")]
+
+
+@pytest.mark.parametrize(
+    ("remote", "home"),
+    [
+        ("2606:4700:1:2::77", True),  # a public address, on this machine's own network
+        ("2606:4700:1:3::77", False),  # the network next door
+        ("93.184.216.34", False),  # "everything" is a route out, not a home network
+    ],
+)
+def test_a_neighbor_on_this_machines_own_network_is_at_home(remote: str, home: bool) -> None:
+    assert _from_home(SimpleNamespace(remote=remote), OWN) is home  # type: ignore[arg-type]
+
+
+async def test_an_open_stream_follows_the_entry_that_is_loaded_now(
+    hass: HomeAssistant, tuned: Tuned
+) -> None:
+    """Saving the Configure screen reloads the integration under a playing stream."""
+    _, entry, _ = tuned
+    view = hass.data[stream._VIEW_KEY]
+    first = entry.runtime_data
+    assert view._schedule() is first.data
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.runtime_data is not first
+    assert view._schedule() is entry.runtime_data.data
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert view._schedule() is None  # nothing to play, and nothing to fetch
+
+
+async def test_streams_play_on_through_a_reload_and_end_after_a_removal(
+    hass: HomeAssistant, tuned: Tuned
+) -> None:
+    client, entry, _ = tuned
+    path = stream_path(hass, entry, SPEAKER, STATION, say=True)
+    listening = await client.get(path)
+    assert (await listening.content.readexactly(4)) == b"fLaC"
+
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=stream.UNLOADED_FOR_S + 1))
+    await hass.async_block_till_done()
+    assert await listening.content.read(1024)  # still being served
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    async_fire_time_changed(
+        hass, dt_util.utcnow() + timedelta(seconds=2 * stream.UNLOADED_FOR_S + 2)
+    )
+    await hass.async_block_till_done()
+    async with asyncio.timeout(10):
+        with pytest.raises(Exception):  # noqa: B017 - closed mid-stream, however aiohttp says it
+            while await listening.content.read(65536):
+                pass

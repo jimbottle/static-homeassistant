@@ -38,8 +38,9 @@ from http import HTTPStatus
 from typing import TYPE_CHECKING
 
 from aiohttp import web
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.loader import async_get_integration
 
@@ -47,7 +48,7 @@ from .const import CONF_ANNOUNCE, CONF_LEADS_MS, DEFAULT_LEAD_MS, DOMAIN
 from .coordinator import now_ms
 from .episode import EpisodeRelayView, episode_opener
 from .opening import opening_for
-from .schedule import Episode
+from .schedule import Episode, Schedule
 from .station_audio import CHANNELS, SAMPLE_RATE, Listen, OpenEpisode, Source, station_pcm
 
 if TYPE_CHECKING:
@@ -61,7 +62,11 @@ SETTLE_S = 0.3  # how long a connection must stay before an episode is asked for
 STALL_S = 20  # a reader that takes nothing for this long is dropped
 QUIET = "quiet"  # the query word that leaves the spoken opening out
 
+UNLOADED_FOR_S = 30  # how long with no entry loaded before open streams are ended
+
 _READ_BYTES = 16 * 1024
+# The widest own network that still counts as "the home network", by address family.
+_NARROWEST = {4: 16, 6: 48}
 _VIEW_KEY = f"{DOMAIN}.stream_view"
 
 
@@ -81,15 +86,55 @@ def stream_path(
     return path if say else f"{path}?{QUIET}=1"
 
 
-def _from_home(request: web.Request) -> bool:
-    """True for a caller on this machine or the home network."""
+type _Network = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+async def _own_networks(hass: HomeAssistant) -> list[_Network]:
+    """The networks this machine's own adapters are on.
+
+    A home network that has IPv6 usually gives every device a public address,
+    so "private" alone would turn away a speaker in the same room. An address
+    inside a network this machine is itself on is a neighbor, whatever its range.
+    """
+    if "network" not in hass.config.components:
+        return []
+    from homeassistant.components import network  # noqa: PLC0415
+
+    found: list[_Network] = []
+    for adapter in await network.async_get_adapters(hass):
+        if not adapter["enabled"]:
+            continue
+        for address in (*adapter["ipv4"], *adapter["ipv6"]):
+            with contextlib.suppress(ValueError):
+                found.append(
+                    ipaddress.ip_network(
+                        f"{address['address']}/{address['network_prefix']}", strict=False
+                    )
+                )
+    return found
+
+
+def _from_home(request: web.Request, own: list[_Network] | None = None) -> bool:
+    """True for a caller on this machine or the home network.
+
+    That is a loopback, private or link-local address, or any address inside
+    one of this machine's own networks (own).
+    """
     try:
-        address = ipaddress.ip_address(request.remote or "")
+        address = ipaddress.ip_address((request.remote or "").split("%")[0])
     except ValueError:
         return False
     if isinstance(address, ipaddress.IPv6Address) and address.ipv4_mapped is not None:
         address = address.ipv4_mapped
-    return address.is_loopback or address.is_private or address.is_link_local
+    if address.is_loopback or address.is_private or address.is_link_local:
+        return True
+    # A network as wide as "everything" is a default route, not a neighborhood.
+    return any(
+        address.version == net.version
+        and net.prefixlen >= _NARROWEST[net.version]
+        and address in net
+        for net in own or ()
+    )
 
 
 def _ffmpeg_binary(hass: HomeAssistant) -> str:
@@ -137,10 +182,39 @@ class StationStreamView(HomeAssistantView):
         entries = self._hass.config_entries.async_loaded_entries(DOMAIN)
         return entries[0] if entries else None
 
+    def _schedule(self) -> Schedule | None:
+        """The schedule in force now, for every open stream.
+
+        Asked afresh each time, and of whichever entry is loaded now: saving
+        the Configure screen reloads the integration under a stream that is
+        still playing, and that stream has to follow the new entry's schedule
+        and not keep the one it started with, which no longer updates.
+        """
+        entry = self._entry()
+        return entry.runtime_data.data if entry is not None else None
+
+    @property
+    def serving(self) -> bool:
+        """Whether any speaker is being served right now."""
+        return bool(self._serving)
+
+    @callback
+    def end_if_unloaded(self, _now: object = None) -> None:
+        """End every open stream if the integration is still not loaded.
+
+        Called a little after an unload. A reload has an entry back by then
+        and the streams play on. A removal or a switch-off does not, and a
+        speaker must not go on being served by an integration that is gone.
+        """
+        if self._entry() is not None:
+            return
+        for task in list(self._serving.values()):
+            task.cancel()
+
     async def get(self, request: web.Request, key: str, filename: str) -> web.StreamResponse:
         """One listen: from the live moment, until the speaker stops reading."""
         entry = self._entry()
-        if entry is None or not _from_home(request):
+        if entry is None or not _from_home(request, await _own_networks(self._hass)):
             return web.Response(status=HTTPStatus.NOT_FOUND)
         keys: dict[str, str] = entry.data.get(CONF_STREAM_KEYS, {})
         speaker = next(
@@ -168,7 +242,7 @@ class StationStreamView(HomeAssistantView):
             station_id=station_id,
             lead_ms=int(entry.options.get(CONF_LEADS_MS, {}).get(speaker, DEFAULT_LEAD_MS)),
             now_ms=now_ms,
-            schedule=lambda: coordinator.data,
+            schedule=self._schedule,
             open_episode=_held(
                 episode_opener(self._hass, async_get_clientsession(self._hass), self._version),
                 settled,
@@ -258,6 +332,16 @@ async def async_setup_stream(hass: HomeAssistant) -> None:
     if _VIEW_KEY in hass.data:
         return
     integration = await async_get_integration(hass, DOMAIN)
-    hass.data[_VIEW_KEY] = True
-    hass.http.register_view(StationStreamView(hass, str(integration.version)))
+    view = StationStreamView(hass, str(integration.version))
+    hass.data[_VIEW_KEY] = view
+    hass.http.register_view(view)
     hass.http.register_view(EpisodeRelayView(hass, str(integration.version)))
+
+
+@callback
+def streams_after_unload(hass: HomeAssistant) -> None:
+    """The entry has unloaded: look again shortly, and end the streams if it stayed that way."""
+    view: StationStreamView | None = hass.data.get(_VIEW_KEY)
+    # With Home Assistant stopping, every connection is about to end anyway.
+    if view is not None and view.serving and not hass.is_stopping:
+        async_call_later(hass, UNLOADED_FOR_S, view.end_if_unloaded)

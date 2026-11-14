@@ -27,7 +27,7 @@ from .const import DOMAIN
 from .coordinator import SCHEMA_ISSUE, StaticCoordinator, session_fetch
 from .intents import async_setup_intents
 from .schedule import parse_schedule
-from .stream import async_setup_stream, prepare_openings
+from .stream import async_setup_stream, prepare_openings, streams_after_unload
 from .tune import async_setup_tune
 
 type StaticConfigEntry = ConfigEntry[StaticCoordinator]
@@ -96,4 +96,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> b
         # A notice about the schedule's format belongs to a loaded entry. A
         # reload raises it again from the schedule in hand if it still applies.
         ir.async_delete_issue(hass, DOMAIN, SCHEMA_ISSUE)
+        # Streams that are playing go on through a reload and end after a removal.
+        streams_after_unload(hass)
     return unloaded
