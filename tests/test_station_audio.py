@@ -26,7 +26,9 @@ from custom_components.static_radio.schedule import GAP_MS, Episode, Schedule, S
 from custom_components.static_radio.segments import OPENING_MS
 from custom_components.static_radio.station_audio import (
     BYTES_PER_MS,
+    MAX_AHEAD_MS,
     MAX_RETRIES,
+    PIECE_MS,
     SAMPLE_RATE,
     EpisodeFailedError,
     Listen,
@@ -406,3 +408,55 @@ def test_when_the_speaker_stops_listening_the_download_stops_at_once() -> None:
 
     asyncio.run(asyncio.wait_for(listen_briefly(), timeout=60))
     assert seen == [1, 0]
+
+
+def test_a_reader_that_takes_all_it_is_given_gets_a_minute_ahead_and_no_more() -> None:
+    """A player buffers ahead to play smoothly. Taking the whole episode is not that."""
+    host = Host({"one": tone(440, 150_000)})
+    started = time.time()
+    schedule = schedule_of(
+        episode("one", 150_000), first_starts_ms=int(started * 1000) + LEAD_MS + OPENING_MS
+    )
+    taken = 0
+
+    async def take_everything_for(seconds: float) -> None:
+        nonlocal taken
+        stream = station_pcm(listen_to(schedule, host, clock=lambda: int(time.time() * 1000)))
+        try:
+            async with asyncio.timeout(seconds):
+                async for chunk in stream:
+                    taken += len(chunk)
+        except TimeoutError:
+            pass
+        finally:
+            await stream.aclose()
+
+    asyncio.run(take_everything_for(4))
+    taken_ms = taken // BYTES_PER_MS
+    waited_ms = int((time.time() - started) * 1000)
+    # It reached the limit, so it was not the episode that ran out first.
+    assert taken_ms > MAX_AHEAD_MS
+    # And went no further past the clock than one chunk of sound beyond it.
+    assert taken_ms <= waited_ms + MAX_AHEAD_MS + 1000
+
+
+def test_a_failed_hour_is_silence_in_pieces_not_one_block(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(station_audio, "RETRY_MS", 100)
+    host = Host({}, fail=True)
+    schedule = schedule_of(episode("one", 3_600_000), first_starts_ms=heard_first_ms(0))
+    sizes: list[int] = []
+
+    async def listen_a_little() -> None:
+        stream = station_pcm(listen_to(schedule, host))
+        got = 0
+        async for chunk in stream:
+            sizes.append(len(chunk))
+            got += len(chunk)
+            if got >= (OPENING_MS + 20_000) * BYTES_PER_MS:
+                break
+        await stream.aclose()
+
+    asyncio.run(asyncio.wait_for(listen_a_little(), timeout=60))
+    assert max(sizes[1:]) <= PIECE_MS * BYTES_PER_MS  # sizes[0] is the opening

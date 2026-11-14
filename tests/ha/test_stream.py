@@ -407,3 +407,19 @@ def test_the_encoder_sends_the_opening_on_without_waiting_for_more() -> None:
     finally:
         encoder.kill()
         encoder.wait()
+
+
+async def test_a_listener_who_leaves_with_sound_unread_leaves_nothing_running(
+    hass: HomeAssistant, tuned: Tuned
+) -> None:
+    """The usual way a listen ends: mid-stream, with more on its way than was taken."""
+    client, entry, _ = tuned
+    view = hass.data[stream._VIEW_KEY]
+    listening = await client.get(stream_path(hass, entry, SPEAKER, STATION, say=True))
+    assert (await listening.content.readexactly(4)) == b"fLaC"
+    await asyncio.sleep(1.5)  # take nothing more while the stream keeps coming
+    assert view.serving
+    listening.close()
+    async with asyncio.timeout(10):
+        while view.serving:
+            await asyncio.sleep(0.1)
