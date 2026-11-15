@@ -35,3 +35,7 @@ spikes/**/*.wav
 spikes/**/*.flac
 spikes/**/*.m4a
 spikes/**/*.mp3
+
+# ESPHome build output and Wi-Fi secrets for the dial overlay
+esphome/.esphome/
+esphome/secrets.yaml
