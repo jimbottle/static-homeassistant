@@ -66,13 +66,13 @@ followed by the episode about two seconds later.
 
 ## 5. The release itself
 
-- [ ] Owner: `scripts/release.sh` pushes its release commit straight to
-      `main`, which this repo's branch rules refuse. Decide how a release
-      commit lands (through a pull request, or an exception for the owner)
-      before the first one.
-- [ ] Owner: `scripts/release.sh 0.1.0`. It sets the version in
-      `manifest.json`, writes the changelog, tags `v0.1.0`, and the release
-      workflow attaches the zip. Agents do not bump versions or tag.
+- [ ] Owner: `scripts/release.sh 0.1.0` on an up-to-date `main`. It sets the
+      version in `manifest.json`, writes the changelog, commits them on
+      `release/v0.1.0` and opens the pull request; nothing is pushed to `main`.
+- [ ] Owner: merge that pull request once its checks pass, then
+      `git pull --ff-only && scripts/release.sh tag 0.1.0`. That tags the merge
+      commit `v0.1.0`, and the release workflow attaches the zip. Agents do
+      not bump versions or tag.
 - [ ] The zip installs through HACS as a custom repository on a Home
       Assistant that has never had the development copy.
 
