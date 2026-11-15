@@ -9,17 +9,20 @@ through a pull request.
 
 ## 1. The code is on `main`
 
-- [ ] The station stream, tuning, voice handlers, recovery and media browser
-      playback are merged, with CI green. Built and tested (490 tests) and
-      running as a development copy; not merged as of this draft.
-- [ ] Every review finding on those changes is fixed or answered, and logged
+- [x] The station stream, tuning, voice handlers, recovery and media browser
+      playback are merged, with CI green (#23, then the one-minute limit and
+      a clean ffmpeg shutdown in #24). 500 tests.
+- [x] Every review finding on those changes is fixed or answered, and logged
       in [review-findings.md](review-findings.md).
-- [ ] No review is open on `main`.
+- [x] No review is open on `main` (2026-11-15).
+- [ ] The reference install runs what `main` holds. It runs #23; #24 is
+      waiting for the laptop to be back on the home network.
 
 ## 2. It has been heard, not only tested
 
 Heard so far, on a Home Assistant Voice Preview Edition through Music
-Assistant: an MP3 station, an MP4 station, and the spoken station name
+Assistant 2.10.8 and Home Assistant 2026.7.2: two MP3 stations and an MP4
+station, each starting about 2 s after the tune, and the spoken station name
 followed by the episode about two seconds later.
 
 - [ ] Every station tuned once, each by its own name, by voice.

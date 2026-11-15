@@ -83,6 +83,12 @@ provider. Do not build these without asking.
   harness live in `tests/ha/`, apart from the pure-Python ones, and
   `scripts/verify.sh` runs the pure ones a second time with no Home Assistant
   installed.
+- The stream tests run real ffmpeg on generated tones, so ffmpeg must be on
+  the path (CI installs it). Two releases have behaved differently from the
+  dev machine's: CI runs Ubuntu 26.04 with ffmpeg 8.0 and Python 3.14.4, and
+  Home Assistant 2026.7.2 runs Python 3.14.6. Run stream changes on those
+  too, for example `uv run --isolated --python 3.14.6 --only-group pure
+  pytest tests/test_station_audio.py`, or in an `ubuntu:26.04` container.
 - Nothing under `spikes/` is reused in the integration.
 - Spoken replies are one sentence, end in a period, and never end in a
   question mark. Sentence lists are prefixed `static_`.
