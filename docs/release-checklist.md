@@ -52,8 +52,9 @@ followed by the episode about two seconds later.
 - [ ] Owner: an icon for the integration that is this project's own. Static's
       logo is Static's. Then take `brands` out of the HACS check's ignore list
       in `ci.yml`.
-- [ ] Owner: repo topics, for example `home-assistant`, `hacs`,
-      `custom-integration`. Then take `topics` out of the same list.
+- [x] Owner: repo topics (`home-assistant`, `hacs`,
+      `homeassistant-custom-component`, `radio`, `podcasts`; set 2026-11-15),
+      and `topics` taken out of the same list.
 - [ ] The `hacs` job in CI passes with nothing ignored.
 
 ## 4. Static
