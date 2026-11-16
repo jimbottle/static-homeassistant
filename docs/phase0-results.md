@@ -83,11 +83,38 @@ that it builds what the device runs.
 -0.010 s; 7,276 s of stream taken in a 3 s connection (not paced); duration
 reported as N/A.
 
-## Start delay on the speaker
+## Start delay on the speaker. Measured 2026-11-13 and 2026-11-14
 
-Not yet measured. This is the spike: 20 tunes on each delivery path, a pause
-and resume check, and a two-hour run. The bar is 18 of 20 tunes within 1 s of
-the clock, none worse than 2 s, and the two-hour run within 1 s.
+The spike: a click track served from the dev machine, with a click on every
+wall-clock second and a longer beep every tenth, recorded by the dev machine's
+microphone near the speaker. One clock times both. The bar was 18 of 20 tunes
+within 1 s of the arm's usual delay, none worse than 2 s, and a two-hour run
+within 1 s.
+
+| Delivery | Tunes heard | Delay range | Usual delay | Furthest from usual |
+| --- | --- | --- | --- | --- |
+| A: Music Assistant player (`music_assistant.play_media`) | 20 of 20 | 1.319 to 1.396 s | 1.332 s | 0.064 s |
+| B: the speaker's own player, through Home Assistant's ffmpeg proxy | 20 of 20 | 0.230 to 0.686 s | 0.284 s | 0.402 s |
+| C: the speaker's own player, fetching the stream itself (`bypass_proxy`) | 20 of 20 | 0.211 to 0.304 s | 0.278 s | 0.067 s |
+
+- All three pass. A fixed lead covers the start delay: the spread, not the
+  size, is what matters, and on A it is under a tenth of a second.
+- Two-hour run on A: 22 samples, all heard, from 1.319 to 1.361 s, a drift
+  of 0.042 s. An earlier two-hour run on C drifted 0.071 s.
+- On C, "stop" failed to land three times in one pass: the stream went on
+  under the next tune's request.
+- The first night's run was void for A: the speaker lost its connection to
+  Home Assistant partway through, restarted itself and returned a quarter of
+  an hour later at the last volume it had been given. Its own log and Home
+  Assistant's show the disconnect and the restart. The speaker can vanish and
+  come back; the integration now re-tunes it when it does.
+- Before the runs counted, a checked rehearsal with someone at the speaker
+  found two faults in the measuring itself, not the speaker: the recording
+  dropped about one audio packet in ten, and loud room noise hid clicks.
+  Both were fixed, and on every step of the rehearsal what the recording
+  reported matched what was heard.
+
+The integration's default lead is 1300 ms, from delivery A.
 
 ## From the research pass of 2026-11-11, not re-checked here
 
@@ -97,7 +124,8 @@ had code. They are recorded so each can be re-checked before it is relied on.
 | Claim | Source to re-check |
 | --- | --- |
 | Music Assistant plays a plain URL through its builtin provider and treats a stream with no duration as radio, not seekable | `music_assistant/providers/builtin/__init__.py` at 2.10.8, `get_stream_details` |
-| It starts a radio stream once 3 s are buffered, keeps a 15 s buffer in memory, and reads at up to 1.03 times playback speed after a 3 s burst | `controllers/streams/constants.py`, `audio_buffer.py` |
+| ~~It starts a radio stream once 3 s are buffered, and reads at up to 1.03 times playback speed after a 3 s burst~~ Corrected on re-reading 2.10.8: a radio stream is "realtime" and starts once 1 s is buffered (2 s with dynamic normalization, the radio default); the 15 s rolling buffer is right; the 1.03 pacing applies only to players served over HTTP, not to Sendspin speakers | `audio_buffer.py` (`is_realtime`, ready threshold), `constants.py` (`RADIO_BUFFER_SIZE`, `_PACING`) |
+| A plain URL handed to `music_assistant.play_media` loses its `media_type`; the builtin provider calls it radio when the stream has an `icy-name` header or no duration, probes it once with ffprobe and keeps that answer 30 days per URL | Home Assistant `music_assistant/media_player.py`; Music Assistant `providers/builtin/__init__.py`, `helpers/tags.py` (checked 2026-11-14) |
 | Its Sendspin player has no pause, so a pause becomes a stop, and resuming a radio item reopens the URL | `providers/sendspin/player.py`, `controllers/players/controller.py`, `controllers/player_queues/controller.py` |
 | It has no audio cache on disk | `constants.py`: `allow_audio_cache` is read nowhere |
 | Home Assistant sends media to an ESPHome speaker through its ffmpeg proxy unless `bypass_proxy` is passed | `homeassistant/components/esphome/media_player.py` at 2026.7.2 |

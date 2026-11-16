@@ -106,10 +106,13 @@ def heard_first_ms(into_ms: int) -> int:
 class Host:
     """A show's host, serving tones from memory and counting what it is asked for."""
 
-    def __init__(self, files: dict[str, bytes], *, fail: bool = False, slow_s: float = 0) -> None:
+    def __init__(
+        self, files: dict[str, bytes], *, fail: bool = False, slow_s: float = 0, cut_ms: int = 0
+    ) -> None:
         self.files = files
         self.fail = fail
         self.slow_s = slow_s
+        self.cut_ms = cut_ms  # end each download with an error after this much audio
         self.asked: list[tuple[str, int]] = []
         self.paths: dict[str, str] = {}  # episodes ffmpeg is to fetch itself
         self.downloading = 0  # downloads open right now
@@ -131,8 +134,11 @@ class Host:
             # A constant-bitrate tone: a time is the same share of the bytes.
             made_ms = len(data) * 8 // 64
             at = len(data) * min(start_ms, made_ms) // max(made_ms, 1)
-            for i in range(at, len(data), 4096):
-                yield data[i : i + 4096]
+            end = min(len(data), at + self.cut_ms * 64 // 8) if self.cut_ms else len(data)
+            for i in range(at, end, 4096):
+                yield data[i : min(i + 4096, end)]
+            if end < len(data):
+                raise EpisodeFailedError("the host closed the connection early")
         finally:
             self.downloading -= 1
 
@@ -243,6 +249,24 @@ def test_a_failing_host_is_tried_three_times_then_left_until_the_next_episode(
     assert loudness(part(pcm, 0, OPENING_MS + 4000 + GAP_MS)) == 0
     assert [name for name, _ in host.asked][: 1 + MAX_RETRIES] == ["one"] * (1 + MAX_RETRIES)
     assert [name for name, _ in host.asked].count("one") == 1 + MAX_RETRIES
+
+
+def test_a_host_that_keeps_cutting_a_long_download_is_followed_to_the_end(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Each try plays on from the last, and one that got somewhere starts the count over."""
+    monkeypatch.setattr(station_audio, "RETRY_MS", 200)
+    monkeypatch.setattr(station_audio, "PROGRESS_MS", 1000)
+    host = Host({"one": tone(440, 12000), "two": tone(880, 3000)}, cut_ms=2000)
+    schedule = schedule_of(
+        episode("one", 12000), episode("two", 3000), first_starts_ms=heard_first_ms(0)
+    )
+    pcm = collect(listen_to(schedule, host), OPENING_MS + 12000 + GAP_MS)
+    asked = [start for name, start in host.asked if name == "one"]
+    assert len(asked) > 1 + MAX_RETRIES
+    assert asked == sorted(asked) and asked[0] == 0
+    at = OPENING_MS  # the last cut is at 10 s: listen after it
+    assert pitch(part(pcm, at + 10300, at + 11700)) == pytest.approx(440, abs=8)
 
 
 def test_a_slow_host_costs_some_of_the_episode_and_none_of_the_timeline() -> None:

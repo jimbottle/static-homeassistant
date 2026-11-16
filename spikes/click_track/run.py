@@ -135,9 +135,12 @@ class House:
         if self.dry_run:
             print(f"  [dry run] ssh: {remote[:100]}")
             return ""
+        # No ConnectTimeout: with it, ssh on macOS waited 5 s on a .local name's
+        # IPv6 address before every command, and the play call a tune is timed
+        # from looked 5 s slow. The 60 s timeout below still ends a hung call.
         try:
             done = subprocess.run(  # noqa: S603
-                ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10", self.ssh_host, remote],  # noqa: S607
+                ["ssh", "-o", "BatchMode=yes", self.ssh_host, remote],  # noqa: S607
                 input=stdin,
                 capture_output=True,
                 text=True,
