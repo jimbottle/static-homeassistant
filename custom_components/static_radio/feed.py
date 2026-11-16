@@ -72,6 +72,19 @@ async def _resolve(hass: HomeAssistant, host: str) -> list[str]:
     return [str(info[4][0]) for info in found]
 
 
+def as_written(address: str) -> URL:
+    """An address exactly as the host wrote it.
+
+    Hosts sign their redirects (libsyn's CDN puts type=audio%2Fmpeg inside the
+    signed query), and yarl's default decodes %2F to /, which the host then
+    answers with 403. An address with spaces or other characters a URL cannot
+    carry is not already encoded, so that one is encoded here.
+    """
+    if address.isascii() and address.isprintable() and " " not in address:
+        return URL(address, encoded=True)
+    return URL(address)
+
+
 async def public_address(hass: HomeAssistant, host: str) -> str:
     """One checked address for the host. Refuses unless every address is public."""
     try:
@@ -115,11 +128,11 @@ def feed_fetch(hass: HomeAssistant, session: aiohttp.ClientSession) -> Fetch:
         ) as response:
             location = response.headers.get("Location")
             if response.status in _REDIRECTS and location:
-                return url.join(URL(location))
+                return url.join(as_written(location))
             return Response(response.status, dict(response.headers), await _read_start(response))
 
     async def fetch(url: str, headers: Mapping[str, str]) -> Response:
-        target = URL(url)
+        target = as_written(url)
         async with asyncio.timeout(FEED_TIMEOUT_S):
             for _ in range(MAX_REDIRECTS + 1):
                 answer = await one_hop(target, headers)
