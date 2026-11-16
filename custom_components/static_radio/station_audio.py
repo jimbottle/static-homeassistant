@@ -15,7 +15,10 @@ Three things here are Static's rules and not choices:
 - An episode that fails is tried again twice, three seconds apart, at
   wherever live has got to, and is then left alone until the next episode.
   This is the reference player's rule (ProtocolHandler.pm, MAX_RETRIES and
-  RETRY_S in static-squeezebox).
+  RETRY_S in static-squeezebox). A try that played a minute or more before
+  the host stopped counts as a success, so the count starts over: a host
+  that cuts a long download every few minutes costs a few seconds each time,
+  not the rest of the episode.
 
 Sound goes out as fast as the speaker reads it, up to MAX_AHEAD_MS past the
 clock and no further. A player keeps some seconds in hand to play smoothly,
@@ -40,6 +43,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import itertools
 import logging
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
@@ -57,6 +61,10 @@ BYTES_PER_MS = SAMPLE_RATE * FRAME_BYTES // 1000
 
 MAX_RETRIES = 2  # tries after the first, per episode: the reference's MAX_RETRIES
 RETRY_MS = 3000  # the wait before each: the reference's RETRY_S
+# A try that played this much before the host stopped starts the count over.
+# Hosts cut long downloads: podbean ended one 3-hour episode every 7 minutes,
+# and three cuts used to leave the other two hours silent.
+PROGRESS_MS = 60_000
 MIN_AUDIO_MS = 1000  # with less than this left of an episode, wait for the next one quietly
 STEP_MS = 100  # the size silence is sent in, and how often a slow episode is checked on
 # Silence stands in for a late episode only once the speaker holds less than
@@ -290,6 +298,7 @@ class _Slot:
 
     left: int
     failed: bool = False  # the last try ended because the host let us down
+    heard: int = 0  # bytes of the episode itself the last try gave, silence not counted
 
     def fill(self, sent: _Sent) -> bytes:
         """A step of silence if the speaker is about to run dry, else nothing."""
@@ -319,6 +328,7 @@ async def _one_try(
     skip = 0  # samples that silence already stood in for while this try was slow
     tail = b""  # bytes short of a whole sample frame, kept for the next read
     reading = asyncio.ensure_future(decoder.read())
+    slot.heard = 0
     try:
         while slot.left > 0:
             done, _ = await asyncio.wait({reading}, timeout=STEP_MS / 1000)
@@ -338,6 +348,7 @@ async def _one_try(
             data, tail = data[:whole][: slot.left], data[whole:]
             if data:
                 slot.left -= len(data)
+                slot.heard += len(data)
                 yield data
     finally:
         reading.cancel()
@@ -350,7 +361,8 @@ async def _one_try(
 async def _episode_pcm(listen: Listen, sent: _Sent, segment: Segment) -> AsyncGenerator[bytes]:
     """Exactly segment.audio_ms of sound: the episode, and silence where it fails."""
     slot = _Slot(left=segment.audio_ms * BYTES_PER_MS)
-    for attempt in range(1 + MAX_RETRIES):
+    retries = 0
+    for attempt in itertools.count():
         if attempt:
             async with contextlib.aclosing(_pause(sent, slot)) as pause:
                 async for chunk in pause:
@@ -362,6 +374,9 @@ async def _episode_pcm(listen: Listen, sent: _Sent, segment: Segment) -> AsyncGe
                 yield chunk
         if not slot.failed:
             break  # the file ended, early or on time: stay quiet until the next one
+        retries = 1 if slot.heard >= PROGRESS_MS * BYTES_PER_MS else retries + 1
+        if retries > MAX_RETRIES:
+            break
     for piece in _quiet(slot.left):
         yield piece
 
