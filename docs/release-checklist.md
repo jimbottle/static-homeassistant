@@ -52,12 +52,11 @@ followed by the episode about two seconds later.
 - [ ] `FUTURE_IMPROVEMENTS.md` lists what the first release leaves out, each
       with its reason: multi-room groups, languages other than English, the
       default HACS store, a Music Assistant provider, a shorter opening.
-- [ ] Owner: an icon for the integration that is this project's own. Static's
-      logo is Static's. Then take `brands` out of the HACS check's ignore list
-      in `ci.yml`.
-- [ ] Owner: repo topics, for example `home-assistant`, `hacs`,
-      `custom-integration`. Then take `topics` out of the same list.
-- [ ] The `hacs` job in CI passes with nothing ignored.
+- [x] An icon of the project's own: STATIC RADIO in a pixel font
+      (`brand/`, drawn by `tools/make_icon.py`, 2026-11-15).
+- [x] Repo topics (`home-assistant`, `hacs`, `homeassistant-custom-component`,
+      `radio`, `podcasts`), set 2026-11-15.
+- [x] The `hacs` job in CI passes with nothing ignored.
 
 ## 4. Static
 
