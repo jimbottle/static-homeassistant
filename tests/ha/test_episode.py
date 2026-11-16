@@ -172,6 +172,18 @@ async def test_redirects_are_followed_and_audio_url_itself_is_asked_each_time(
     assert hosts == ["count.example", "shows.example"] * 2
 
 
+async def test_a_signed_redirect_is_asked_exactly_as_given(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, tone: bytes
+) -> None:
+    """A CDN signs its query: decoding %2F there makes it answer 403."""
+    signed = f"{URL}?type=audio%2Fmpeg&sig=a%2Bb~c"
+    aioclient_mock.get("https://93.184.216.35/r/one.mp3", status=302, headers={"Location": signed})
+    serve(aioclient_mock, f"{AT}?type=audio%2Fmpeg&sig=a%2Bb~c", tone)
+    assert await read(hass, an_episode("https://count.example/r/one.mp3"), 0) == tone
+    asked = str(aioclient_mock.mock_calls[-1][1])
+    assert asked.endswith("?type=audio%2Fmpeg&sig=a%2Bb~c"), asked
+
+
 @pytest.mark.parametrize(
     "location",
     ["https://inside.example/one.mp3", "http://127.0.0.1:8123/api/", "file:///etc/passwd"],
