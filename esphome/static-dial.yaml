@@ -1,0 +1,117 @@
+# Static Radio dial for the Home Assistant Voice Preview Edition (unofficial).
+#
+# An ESPHome overlay on the stock Voice PE firmware, release 26.9.0, that lets
+# the dial tune Static Radio stations. It is opt-in custom firmware: the
+# integration works without it, through voice, the dashboard and the button.
+#
+# While the "Static dial" switch is on (the integration turns it on while
+# Static plays on this speaker), a plain turn fires a dial_clockwise or
+# dial_anticlockwise event on the stock "Button press" event entity and a turn
+# with the button held steps the volume, as on Static's Chumby port. "Static
+# dial: hold to tune" swaps the two. With "Static dial" off, which is how it
+# boots, every turn runs the stock firmware's own dial actions, unchanged.
+#
+# The stock config is pulled from the tag, and its unpinned voice_kit
+# component is pinned to the commit that tag points to. Build it with the
+# ESPHome release that built 26.9.0:
+#   uvx esphome==2026.6.0 compile esphome/static-dial.yaml
+# Wi-Fi comes from esphome/secrets.yaml (see secrets.example.yaml), which is
+# never committed. Credit and stations: https://staticradio.app
+packages:
+  voice_pe:
+    url: https://github.com/esphome/home-assistant-voice-pe
+    ref: 26.9.0
+    files: [home-assistant-voice.yaml]
+
+external_components:
+  # Listed after the stock entry, so ESPHome loads voice_kit from here.
+  - source:
+      type: git
+      url: https://github.com/esphome/home-assistant-voice-pe
+      ref: 2644f4c794271d735d182ca7ebf899ed46164f4e
+    components: [voice_kit]
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+sensor:
+  # Drop the stock dial actions, then send every turn through static_dial_turn.
+  - id: !extend dial
+    on_clockwise: !remove
+    on_anticlockwise: !remove
+  - id: !extend dial
+    on_clockwise:
+      - script.execute: {id: static_dial_turn, clockwise: true}
+    on_anticlockwise:
+      - script.execute: {id: static_dial_turn, clockwise: false}
+
+event:
+  - id: !extend button_press_event
+    event_types: [dial_clockwise, dial_anticlockwise]
+
+switch:
+  - platform: template
+    id: static_dial
+    name: Static dial
+    icon: mdi:radio
+    optimistic: true
+    restore_mode: ALWAYS_OFF
+  - platform: template
+    id: static_dial_hold_to_tune
+    name: "Static dial: hold to tune"
+    icon: mdi:gesture-tap-hold
+    entity_category: config
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+script:
+  - id: static_dial_turn
+    parameters:
+      clockwise: bool
+    then:
+      - if:
+          condition:
+            switch.is_on: static_dial
+          then:
+            - if:
+                condition:
+                  # Tune on a plain turn, or on a held one with hold to tune.
+                  lambda: |-
+                    bool held = id(center_button).state || id(disable_buttons).state;
+                    return held == id(static_dial_hold_to_tune).state;
+                then:
+                  - event.trigger:
+                      id: button_press_event
+                      event_type: !lambda 'return clockwise ? "dial_clockwise" : "dial_anticlockwise";'
+                  - sensor.rotary_encoder.set_value: {id: dial, value: 0}
+                else:
+                  - lambda: id(dial_touched) = true;
+                  - script.execute:
+                      id: control_volume
+                      increase_volume: !lambda return clockwise;
+          else:
+            # The stock 26.9.0 dial actions, with the direction as a parameter.
+            - lambda: id(dial_touched) = true;
+            - if:
+                condition:
+                  and:
+                    - binary_sensor.is_off: center_button
+                    - switch.is_off: disable_buttons
+                then:
+                  - script.execute:
+                      id: control_volume
+                      increase_volume: !lambda return clockwise;
+                else:
+                  - if:
+                      condition:
+                        media_player.is_playing:
+                          id: sendspin_group_media_player
+                      then:
+                        - script.execute:
+                            id: control_group_volume
+                            increase_volume: !lambda return clockwise;
+                      else:
+                        - script.execute:
+                            id: control_hue
+                            increase_hue: !lambda return clockwise;
