@@ -36,8 +36,63 @@ Installed by hand as a development copy, the integration:
 [examples/now-playing-card.yaml](examples/now-playing-card.yaml) is a dashboard card that
 shows every station with its Episode and Support links.
 
-An English sentence file for voice control ships in the integration. It is not switched on
-for you: copy `sentences/en.yaml` into your `custom_sentences/en/` folder to use it.
+## Install
+
+There is no release yet. Until there is, install it by hand:
+
+1. Copy `custom_components/static_radio/` from this repo into the `custom_components/`
+   folder of your Home Assistant configuration, then restart Home Assistant.
+2. Settings → Devices & services → Add integration → **Static Radio (unofficial)**. It
+   needs no account.
+3. Open the integration's **Configure** screen and choose the speakers that can be tuned
+   to Static, the phone a show's Support link is sent to (or none, to have it read out),
+   and whether the station's name is spoken at the start of the stream.
+4. The next screen sets each speaker's lead (see [Timing](#timing)). The default,
+   1300 ms, was measured on a Voice Preview Edition through Music Assistant.
+
+Each speaker chosen gets a station selector, which you can put on a dashboard. Once a
+release is out, it installs through HACS as a custom repository instead.
+
+Home Assistant has to have an address on your home network (Settings → System → Network),
+because the speaker fetches its stream from Home Assistant.
+
+### Tested on
+
+| | Version |
+|---|---|
+| Home Assistant Core | 2026.7.2 (Python 3.14.6, ffmpeg 8.1) |
+| Music Assistant | 2.10.8 |
+| Speaker | Home Assistant Voice Preview Edition, stock firmware 26.9.0 (ESPHome 2026.6.0) |
+
+Other speakers should work through Music Assistant or as plain media players, but none has
+been tried.
+
+## Voice
+
+An English sentence file ships in the integration. It is not switched on for you: copy
+`custom_components/static_radio/sentences/en.yaml` to `custom_sentences/en/static_radio.yaml`
+in your configuration, then reload conversation (Developer tools → YAML) or restart.
+
+Every sentence has the word "Static" in it. Spoken to a speaker, it understands:
+
+- "play Static", and "play Static News" or "tune Static to Nature" for a station;
+- "next Static station" and "previous Static station";
+- "what's on Static";
+- "what's the Static support link", and "send me the Static support link", which goes to
+  the phone chosen on the Configure screen.
+
+Station names are Static's own and no others: no nicknames. The music goes to the speaker
+you spoke to.
+
+What it leaves alone, on purpose:
+
+- anything without "Static" in it. "Next station", "play the news" and "play some jazz"
+  stay with whatever your home already does with them;
+- "play Static on the speaker". Home Assistant's own "play … on <speaker>" sentence takes
+  that one, and searches your music for "static";
+- stop, pause and resume. Your usual "stop" stops Static, and playing it again tunes to
+  the live moment. There is no Static sentence for them because there is nothing to resume
+  from: Static is live.
 
 ## How it keeps to Static's rules
 
@@ -47,9 +102,11 @@ It follows the ground rules in Static's [developer guide](https://staticradio.ap
   your own Home Assistant, as you listen. Nothing is written to disk, cached or re-hosted.
 - A speaker is given at most a minute more than it has had time to play. A player keeps a
   few seconds in hand to play smoothly; nothing is fetched to be kept.
-- It stays live. There is no seeking, skipping or pausing: stopping and starting again
-  lands on the live moment. Bulletins play where they fall, for at most 30 seconds.
+- It stays live. There is no seeking or skipping: pausing or stopping and then playing
+  again lands on the live moment. Bulletins play where they fall, for at most 30 seconds.
 - An episode that fails is tried again twice, then left until the next one starts on time.
+  A try that played a minute or more before the host stopped does not count, because some
+  hosts cut a long download every few minutes.
 - It asks Static for the schedule at most every 15 minutes and for listener counts at most
   once a minute, and a show's own feed at most once a day.
 - Each show's Support link is shown wherever what is playing is shown.
