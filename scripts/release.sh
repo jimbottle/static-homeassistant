@@ -1,34 +1,77 @@
 #!/usr/bin/env bash
-# Raylytics VC Standard, scripts/release.sh (STANDARD.md §7).
-# Usage: scripts/release.sh X.Y.Z   (run from the repo root, on main)
-# 1. Refuses unless on main, clean, in sync with origin, and the last ci run on
-#    main is green. 2. Bumps the stack's source-of-truth version file (and the
-#    React Native derived copies). 3. Prepends the release to CHANGELOG.md with
-#    git-cliff. 4. Commits chore(release): vX.Y.Z, creates a signed annotated
-#    tag, pushes both. release.yml then creates the GitHub Release.
+# Raylytics VC Standard, scripts/release.sh (STANDARD.md §7), adapted so a
+# release lands through a pull request: main's ruleset requires a PR, signed
+# commits and green checks, so nothing is pushed to main directly (owner's
+# decision, 2026-11-15).
+#
+# Usage, run by the owner from the repo root:
+#   scripts/release.sh X.Y.Z       1. prepare: from a clean main in sync with
+#                                     origin and green in ci, bump the version,
+#                                     prepend the release to CHANGELOG.md with
+#                                     git-cliff, commit chore(release): vX.Y.Z
+#                                     on release/vX.Y.Z, push it, open the PR.
+#   (merge the PR on GitHub once its checks pass)
+#   scripts/release.sh tag X.Y.Z   2. tag: on main after the merge, check that
+#                                     the head is that release and the version
+#                                     matches, then create a signed annotated
+#                                     tag and push it. release.yml then builds
+#                                     the zip and creates the GitHub Release.
 # Stacks: ha-integration (custom_components/<domain>/manifest.json, this repo),
 # python (pyproject.toml), extension (manifest.json), react-native
 # (package.json + android/ + ios/), js (package.json), android
 # (app/build.gradle(.kts)), go (tag only; goreleaser builds).
 set -euo pipefail
 
-VERSION="${1:?usage: $0 X.Y.Z}"
+MODE=prepare
+if [ "${1:-}" = tag ]; then MODE=tag; shift; fi
+VERSION="${1:?usage: $0 [tag] X.Y.Z}"
 [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$ ]] || { echo "not a SemVer version: $VERSION" >&2; exit 2; }
 TAG="v$VERSION"
+BRANCH="release/$TAG"
+SUBJECT="chore(release): $TAG"
 
 die() { echo "release.sh: $*" >&2; exit 1; }
 
-# ---- 1. preconditions -------------------------------------------------------
+# ---- 1. preconditions (both modes) -----------------------------------------
 [ "$(git rev-parse --abbrev-ref HEAD)" = main ] || die "not on main"
 [ -z "$(git status --porcelain)" ] || die "working tree not clean"
-git fetch -q origin main
-[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main is not in sync with origin/main"
+git fetch -q --tags origin main
+[ "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)" ] || die "main is not in sync with origin/main (git pull --ff-only)"
 git rev-parse -q --verify "refs/tags/$TAG" >/dev/null && die "tag $TAG already exists"
-if [ -f .github/workflows/ci.yml ]; then
-  conclusion="$(gh run list --branch main --workflow ci.yml --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo unknown)"
-  [ "$conclusion" = success ] || die "last ci run on main is '$conclusion', not success"
+ci_is_green() {
+  [ -f .github/workflows/ci.yml ] || return 0
+  local sha conclusion
+  sha="$(git rev-parse HEAD)"
+  conclusion="$(gh run list --branch main --workflow ci.yml --commit "$sha" --limit 1 --json conclusion --jq '.[0].conclusion' 2>/dev/null || echo unknown)"
+  [ "$conclusion" = success ] || die "ci on main at ${sha:0:7} is '${conclusion:-not run yet}', not success"
+}
+
+# ---- tag mode: after the release PR is merged -------------------------------
+if [ "$MODE" = tag ]; then
+  # A squash merge names the PR: "chore(release): vX.Y.Z (#NN)".
+  case "$(git log -1 --format=%s)" in
+    "$SUBJECT" | "$SUBJECT (#"*) ;;
+    *) die "main's head is not the merged '$SUBJECT'" ;;
+  esac
+  manifest="$(ls custom_components/*/manifest.json 2>/dev/null | head -1)"
+  if [ -n "$manifest" ]; then
+    have="$(python3 -c 'import json,sys;print(json.load(open(sys.argv[1]))["version"])' "$manifest")"
+    [ "$have" = "$VERSION" ] || die "$manifest says $have, not $VERSION"
+  fi
+  ci_is_green
+  git tag -s -a "$TAG" -m "$TAG"
+  git push origin "$TAG"
+  echo "== pushed $TAG; release.yml builds the zip and creates the GitHub Release"
+  exit 0
 fi
+
+# ---- prepare mode -------------------------------------------------------------
+ci_is_green
+git ls-remote --exit-code --heads origin "$BRANCH" >/dev/null 2>&1 && die "branch $BRANCH already exists on origin"
 if [ -f CHANGELOG.md ] && grep -q "^## \[$VERSION\]" CHANGELOG.md; then die "CHANGELOG.md already has an entry for $VERSION"; fi
+command -v git-cliff >/dev/null || die "git-cliff is not on PATH"
+command -v gh >/dev/null || die "gh is not on PATH"
+git switch -q -c "$BRANCH"
 
 # ---- 2. bump ----------------------------------------------------------------
 # This repo is a Home Assistant integration. Its version lives in the
@@ -135,7 +178,6 @@ case "$STACK" in
 esac
 
 # ---- 3. changelog -----------------------------------------------------------
-command -v git-cliff >/dev/null || die "git-cliff is not on PATH"
 if [ -f CHANGELOG.md ]; then
   git cliff --tag "$TAG" --unreleased --prepend CHANGELOG.md
 else
@@ -143,10 +185,14 @@ else
 fi
 echo "CHANGELOG.md: $TAG entry written"
 
-# ---- 4. commit, tag, push ---------------------------------------------------
-git add -A
-git commit -q -m "chore(release): $TAG" -m "Source: VC Standard §7"
-git tag -s -a "$TAG" -m "$TAG"
-git push origin main
-git push origin "$TAG"
-echo "== pushed main and $TAG; release.yml creates the GitHub Release"
+# ---- 4. commit, push the branch, open the PR ---------------------------------
+# Stage only what changed in tracked files plus the changelog, never git add -A:
+# an untracked local file must not ride along into a release.
+git add -u
+git add CHANGELOG.md
+git commit -q -m "$SUBJECT" -m "Source: VC Standard §7"
+git push -q -u origin "$BRANCH"
+gh pr create --base main --head "$BRANCH" --title "$SUBJECT" \
+  --body "Release $TAG: version bump and changelog. After this merges with checks green, run \`scripts/release.sh tag $VERSION\` on an up-to-date main."
+git switch -q main
+echo "== opened the $TAG release PR. Merge it, then: git pull --ff-only && scripts/release.sh tag $VERSION"
