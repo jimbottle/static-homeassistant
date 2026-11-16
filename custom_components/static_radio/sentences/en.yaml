@@ -10,6 +10,12 @@
 #   the same name in every other sentence file for the language, so an
 #   unprefixed "station" or "name" would quietly break someone else's
 #   sentences.
+# - Nothing names the speaker it plays on ("on the speaker"). Home
+#   Assistant's built-in "play {search_query} on [the] {name}" fills its
+#   name slot from a speaker's name or alias and wins over a sentence that
+#   fills none, so "play Static on the speaker" would search a music
+#   service for "static" in a home whose speaker answers to "speaker".
+#   Static always plays on the speaker that was spoken to.
 # - Nothing here pauses, stops, resumes, seeks or skips within a show.
 #   Static is live: a listener's usual stop phrase stops it, and playing it
 #   again tunes to the live moment.
@@ -26,7 +32,6 @@ intents:
     data:
       - sentences:
           - "<static_start> <static> [please]"
-          - "<static_start> <static> on [the] speaker [please]"
 
   StaticTune:
     data:

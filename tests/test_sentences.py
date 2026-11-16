@@ -63,7 +63,6 @@ def _match(pack: hassil.Intents, said: str) -> tuple[str, dict[str, Any]] | None
         ("play static radio", "StaticPlay", {}),
         ("Put on Static, please.", "StaticPlay", {}),
         ("listen to static", "StaticPlay", {}),
-        ("Play Static on the speaker.", "StaticPlay", {}),
         ("Play Static News.", "StaticTune", {"station": "News"}),
         ("Tune Static to Weird.", "StaticTune", {"station": "Weird"}),
         ("switch static to nature", "StaticTune", {"station": "Nature"}),
@@ -198,6 +197,16 @@ def test_the_pack_has_no_wildcard_and_only_prefixed_lists(raw: dict[str, Any]) -
     assert all(name.startswith("static") for name in raw["expansion_rules"])
     assert "wildcard" not in raw["lists"]["static_station"]
     assert "range" not in raw["lists"]["static_station"]
+
+
+def test_nothing_in_the_pack_names_a_speaker(pack: hassil.Intents) -> None:
+    # Home Assistant's built-in "play {search_query} on [the] {name}" fills its
+    # name slot from a speaker's name or alias and is preferred over a match
+    # that fills none, so a Static sentence ending "on the speaker" loses to a
+    # music search for "static" in any home whose speaker is called that.
+    produced = [text.lower() for _intent, text in hassil.sample_intents(pack)]
+    offenders = [text for text in produced if "speaker" in text.split()]
+    assert offenders == []
 
 
 def test_nothing_in_the_pack_pauses_seeks_or_skips_within_a_show(pack: hassil.Intents) -> None:
