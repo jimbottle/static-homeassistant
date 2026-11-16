@@ -75,11 +75,24 @@ def _total_bytes(response: aiohttp.ClientResponse) -> int | None:
     return int(total) if total.isdigit() else None
 
 
+def _as_written(address: str) -> URL:
+    """An address exactly as the host wrote it.
+
+    Hosts sign their redirects (libsyn's CDN puts type=audio%2Fmpeg inside the
+    signed query), and yarl's default decodes %2F to /, which the host then
+    answers with 403. An address with spaces or other characters a URL cannot
+    carry is not already encoded, so that one is encoded here.
+    """
+    if address.isascii() and address.isprintable() and " " not in address:
+        return URL(address, encoded=True)
+    return URL(address)
+
+
 async def _get(
     hass: HomeAssistant, session: aiohttp.ClientSession, url: str, headers: Mapping[str, str]
 ) -> aiohttp.ClientResponse:
     """Ask url, following its redirects by hand, each hop checked. The caller releases it."""
-    target = URL(url)
+    target = _as_written(url)
     for _ in range(MAX_REDIRECTS + 1):
         if target.scheme not in ("http", "https") or not target.host or target.user:
             raise FeedRefusedError("not a plain web address")
@@ -96,7 +109,7 @@ async def _get(
         if response.status not in _REDIRECTS or not location:
             return response
         response.release()
-        target = target.join(URL(location))
+        target = target.join(_as_written(location))
     raise FeedRefusedError("too many redirects")
 
 
