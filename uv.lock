@@ -1217,15 +1217,15 @@ wheels = [
 
 [[package]]
 name = "hassil"
-version = "3.8.0"
+version = "3.12.1"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pyyaml" },
     { name = "unicode-rbnf" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/0b/35/f4efdf2005f45916e338ade57090d5cb1b017708d9fcca6eaa58c69ca1c5/hassil-3.8.0.tar.gz", hash = "sha256:3ab16e659776576f19a28a0eeabc484a21eeef4d3b1189e6074ec113aad8eeb9", size = 63583, upload-time = "2026-06-12T20:00:43.994Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/9f/5908d3ec6b811f63f444d27d54b7dca58e95c8443af8814ddc4fc015b9e8/hassil-3.12.1.tar.gz", hash = "sha256:dad08f2525ad0246cfd6cc072e2c3015f1b15f918ac49a7b8e9dd07bd6ef8f5a", size = 71564, upload-time = "2026-09-14T16:00:09.703Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/bd/cd/509db1e122433e419bd6cac655f23c77d44e245b0c76ae8c0b437d48ba07/hassil-3.8.0-py3-none-any.whl", hash = "sha256:c9dfb194f26a6aeaa1072188a8adbc84948774a1e5f06d6c487f1bc66f32c685", size = 53669, upload-time = "2026-06-12T20:00:42.67Z" },
+    { url = "https://files.pythonhosted.org/packages/a7/37/395bad9bfeed5d9a78e6769941d09eb073fab6c76f65e6257fb0388b9751/hassil-3.12.1-py3-none-any.whl", hash = "sha256:d12553cccf2548a86cfedd28c8f3171690f5e8c064470c2b66170cc5848ecdef", size = 58054, upload-time = "2026-09-14T16:00:08.252Z" },
 ]
 
 [[package]]
@@ -2946,7 +2946,7 @@ pure = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "hassil", specifier = "==3.8.0" },
+    { name = "hassil", specifier = "==3.12.1" },
     { name = "jsonschema", specifier = ">=4.20" },
     { name = "mypy", specifier = ">=1.10" },
     { name = "pre-commit", specifier = ">=4.0" },
@@ -2955,7 +2955,7 @@ dev = [
     { name = "ruff", specifier = ">=0.17.3,<0.18" },
 ]
 pure = [
-    { name = "hassil", specifier = "==3.8.0" },
+    { name = "hassil", specifier = "==3.12.1" },
     { name = "jsonschema", specifier = ">=4.20" },
     { name = "pytest", specifier = ">=8.0" },
 ]
