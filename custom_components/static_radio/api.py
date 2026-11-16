@@ -26,8 +26,13 @@ import time
 from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit
 
 _LOGGER = logging.getLogger(__name__)
+# Every request this integration makes, one line each at debug level, so an
+# hour of them can be checked against Static's rules. Switch it on with
+# logger.set_level: custom_components.static_radio.requests: debug
+_REQUESTS = logging.getLogger(__name__.rpartition(".")[0] + ".requests")
 
 SCHEDULE_URL = "https://data.staticradio.app/schedule-wear.json"
 COUNTS_URL = "https://staticradio.app/api/counts"
@@ -64,6 +69,20 @@ Fetch = Callable[[str, Mapping[str, str]], Awaitable[Response]]
 def user_agent(version: str) -> str:
     """The User-Agent every request to Static and to a show's host carries."""
     return f"HomeAssistant-Static/{version}"
+
+
+def log_request(url: object, headers: Mapping[str, str]) -> None:
+    """One line for a request about to go out: never its query, which can carry a signature."""
+    if not _REQUESTS.isEnabledFor(logging.DEBUG):
+        return
+    parts = urlsplit(str(url))
+    _REQUESTS.debug(
+        "GET %s://%s%s User-Agent=%s",
+        parts.scheme,
+        headers.get("Host") or parts.netloc,
+        parts.path,
+        headers.get("User-Agent", "-"),
+    )
 
 
 def request_headers(version: str) -> dict[str, str]:
