@@ -1,16 +1,20 @@
+# One pull request per dependency, monthly. Grouped updates are not used:
+# Dependabot titles a group "bump the <group> group across N directories with
+# M updates", which runs past the pr-title check's 60-character subject limit
+# and would need renaming by hand (owner's decision, 2026-11-15).
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
-    groups:
-      actions:
-        patterns: ["*"]
+    commit-message:
+      prefix: ci
+      include: scope
   - package-ecosystem: uv
     directory: /
     schedule:
       interval: monthly
-    groups:
-      deps:
-        patterns: ["*"]
+    commit-message:
+      prefix: build
+      include: scope
