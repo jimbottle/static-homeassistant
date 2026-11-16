@@ -9,17 +9,20 @@ through a pull request.
 
 ## 1. The code is on `main`
 
-- [ ] The station stream, tuning, voice handlers, recovery and media browser
-      playback are merged, with CI green. Built and tested (490 tests) and
-      running as a development copy; not merged as of this draft.
-- [ ] Every review finding on those changes is fixed or answered, and logged
+- [x] The station stream, tuning, voice handlers, recovery and media browser
+      playback are merged, with CI green (#23, then the one-minute limit and
+      a clean ffmpeg shutdown in #24). 500 tests.
+- [x] Every review finding on those changes is fixed or answered, and logged
       in [review-findings.md](review-findings.md).
-- [ ] No review is open on `main`.
+- [x] No review is open on `main` (2026-11-15).
+- [ ] The reference install runs what `main` holds. It runs #23; #24 is
+      waiting for the laptop to be back on the home network.
 
 ## 2. It has been heard, not only tested
 
 Heard so far, on a Home Assistant Voice Preview Edition through Music
-Assistant: an MP3 station, an MP4 station, and the spoken station name
+Assistant 2.10.8 and Home Assistant 2026.7.2: two MP3 stations and an MP4
+station, each starting about 2 s after the tune, and the spoken station name
 followed by the episode about two seconds later.
 
 - [ ] Every station tuned once, each by its own name, by voice.
@@ -66,13 +69,13 @@ followed by the episode about two seconds later.
 
 ## 5. The release itself
 
-- [ ] Owner: `scripts/release.sh` pushes its release commit straight to
-      `main`, which this repo's branch rules refuse. Decide how a release
-      commit lands (through a pull request, or an exception for the owner)
-      before the first one.
-- [ ] Owner: `scripts/release.sh 0.1.0`. It sets the version in
-      `manifest.json`, writes the changelog, tags `v0.1.0`, and the release
-      workflow attaches the zip. Agents do not bump versions or tag.
+- [ ] Owner: `scripts/release.sh 0.1.0` on an up-to-date `main`. It sets the
+      version in `manifest.json`, writes the changelog, commits them on
+      `release/v0.1.0` and opens the pull request; nothing is pushed to `main`.
+- [ ] Owner: merge that pull request once its checks pass, then
+      `git pull --ff-only && scripts/release.sh tag 0.1.0`. That tags the merge
+      commit `v0.1.0`, and the release workflow attaches the zip. Agents do
+      not bump versions or tag.
 - [ ] The zip installs through HACS as a custom repository on a Home
       Assistant that has never had the development copy.
 
