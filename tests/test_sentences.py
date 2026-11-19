@@ -71,6 +71,11 @@ def _match(pack: hassil.Intents, said: str) -> tuple[str, dict[str, Any]] | None
         ("Play Static Sheila B.", "StaticTune", {"station": "SHEILA B"}),
         ("play static sheila bee", "StaticTune", {"station": "SHEILA B"}),
         ("tune static to shiela b", "StaticTune", {"station": "SHEILA B"}),
+        # Heard at the speaker, 2026-11-19: what the recognizer wrote.
+        ("What's playing on static Sheila D?", "StaticWhatsOn", {"station": "SHEILA B"}),
+        ("Play static shieldy.", "StaticTune", {"station": "SHEILA B"}),
+        ("Turn static to weird.", "StaticTune", {"station": "Weird"}),
+        ("Switch to static learn.", "StaticTune", {"station": "Learn"}),
         ("Next Static station.", "StaticNext", {}),
         ("go to the next static station", "StaticNext", {}),
         ("Previous Static station.", "StaticPrevious", {}),

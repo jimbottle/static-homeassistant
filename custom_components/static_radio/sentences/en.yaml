@@ -38,8 +38,10 @@ intents:
       - sentences:
           - "<static_start> <static> {static_station:station} [please]"
           - "<static_start> [the] {static_station:station} station on <static> [please]"
-          - "(tune|switch|change|set) <static> to {static_station:station} [please]"
+          # "turn": what a recognizer wrote for "tune" at the speaker.
+          - "(tune|turn|switch|change|set) <static> to {static_station:station} [please]"
           - "(tune|switch|change) to {static_station:station} on <static> [please]"
+          - "(tune|switch|change) to <static> {static_station:station} [please]"
 
   StaticNext:
     data:
@@ -110,7 +112,7 @@ lists:
         out: "Unite"
       - in: "make"
         out: "Make"
-      - in: "(sheila b|sheila bee|sheila be|shiela b)"
+      - in: "(sheila b|sheila bee|sheila be|shiela b|sheila d|shieldy)"
         out: "SHEILA B"
       - in: "sleep"
         out: "Sleep"
