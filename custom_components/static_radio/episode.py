@@ -42,7 +42,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.http import HomeAssistantView
 from yarl import URL
 
-from .api import request_headers
+from .api import log_request, request_headers
 from .const import DOMAIN
 from .feed import FeedRefusedError, as_written, public_address
 from .mp3seek import HEAD_BYTES, Mp3Info, RangeRequest, byte_for, first_frame, plan_probe
@@ -85,6 +85,7 @@ async def _get(
             raise FeedRefusedError("not a plain web address")
         address = await public_address(hass, target.host)
         named = target.host if target.is_default_port() else f"{target.host}:{target.port}"
+        log_request(target, {**headers, "Host": named})
         response = await session.get(
             target.with_host(address),
             headers={**headers, "Host": named},

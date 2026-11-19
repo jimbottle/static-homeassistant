@@ -32,7 +32,7 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 from yarl import URL
 
-from .api import Fetch, Response
+from .api import Fetch, Response, log_request
 from .const import DOMAIN
 from .support import CHANNEL_MAX_BYTES, SupportLinks
 
@@ -120,6 +120,7 @@ def feed_fetch(hass: HomeAssistant, session: aiohttp.ClientSession) -> Fetch:
         # and for the certificate check.
         named = url.host if url.is_default_port() else f"{url.host}:{url.port}"
         sent = {**headers, "Host": named}
+        log_request(url, sent)
         async with session.get(
             url.with_host(address),
             headers=sent,

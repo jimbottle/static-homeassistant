@@ -18,3 +18,8 @@ updates:
     commit-message:
       prefix: build
       include: scope
+    # Pinned to what Home Assistant Core 2026.7.2 ships (see pyproject.toml).
+    # They move with that release, by hand, never on their own.
+    ignore:
+      - dependency-name: pytest-homeassistant-custom-component
+      - dependency-name: hassil

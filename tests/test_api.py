@@ -7,9 +7,12 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
+
+import pytest
 
 from custom_components.static_radio.api import (
     COUNTS_MIN_INTERVAL_S,
@@ -19,6 +22,7 @@ from custom_components.static_radio.api import (
     CountsClient,
     Response,
     ScheduleClient,
+    log_request,
     request_headers,
     user_agent,
 )
@@ -270,3 +274,22 @@ def test_counts_never_fail_the_caller() -> None:
 def test_header_lookup_ignores_case() -> None:
     assert Response(200, {"ETag": '"x"'}, b"").header("etag") == '"x"'
     assert Response(200, {}, b"").header("etag") is None
+
+
+def test_each_request_is_logged_by_host_and_path_never_its_query(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    caplog.set_level(logging.DEBUG, logger="custom_components.static_radio.requests")
+    log_request(
+        "https://93.184.216.34/p/one.mp3?sig=secret",
+        {"Host": "shows.example", **request_headers("1.2.3")},
+    )
+    assert caplog.messages == [
+        "GET https://shows.example/p/one.mp3 User-Agent=HomeAssistant-Static/1.2.3"
+    ]
+
+
+def test_the_request_log_is_silent_unless_switched_on(caplog: pytest.LogCaptureFixture) -> None:
+    caplog.set_level(logging.INFO, logger="custom_components.static_radio.requests")
+    log_request("https://staticradio.app/schedule-wear.json", request_headers("1.2.3"))
+    assert caplog.messages == []
