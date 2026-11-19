@@ -484,3 +484,27 @@ def test_a_failed_hour_is_silence_in_pieces_not_one_block(
 
     asyncio.run(asyncio.wait_for(listen_a_little(), timeout=60))
     assert max(sizes[1:]) <= PIECE_MS * BYTES_PER_MS  # sizes[0] is the opening
+
+
+def test_a_warning_never_carries_a_signed_address(caplog: pytest.LogCaptureFixture) -> None:
+    # A client's error text names the address it was connecting to, which
+    # after a host's redirect is the signed one.
+    text = (
+        "Cannot connect to host cdn.example:443 "
+        "('https://cdn.example/a%2Fb.mp3?key=SECRET&session_id=1')"
+    )
+    assert station_audio.without_queries(text) == (
+        "Cannot connect to host cdn.example:443 ('https://cdn.example/a%2Fb.mp3')"
+    )
+    assert station_audio.without_queries("no address here? none") == "no address here? none"
+
+    class Signed(Host):
+        async def open(self, ep: Episode, start_ms: int) -> Source:
+            raise EpisodeFailedError(text)
+
+    schedule = schedule_of(episode("one", 4000), first_starts_ms=heard_first_ms(0))
+    with caplog.at_level("WARNING", logger=station_audio.__name__):
+        collect(listen_to(schedule, Signed({})), OPENING_MS + 500)
+    assert "cdn.example/a%2Fb.mp3" in caplog.text
+    assert "SECRET" not in caplog.text
+    assert "session_id" not in caplog.text

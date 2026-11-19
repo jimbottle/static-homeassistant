@@ -45,6 +45,7 @@ import asyncio
 import contextlib
 import itertools
 import logging
+import re
 from collections.abc import AsyncGenerator, AsyncIterator, Awaitable, Callable, Iterator
 from dataclasses import dataclass
 from typing import Protocol
@@ -53,6 +54,16 @@ from .schedule import Episode, Schedule
 from .segments import OPENING_MS, Segment, heard_at_ms, segment_at
 
 _LOGGER = logging.getLogger(__name__)
+
+# An address in an error's text, and the query or fragment after it. A host's
+# redirect target carries a signature there, which has no place in a log.
+_ADDRESS_QUERY = re.compile(r"""(https?://[^\s?#'"<>()]+)[?#][^\s'"<>()]*""")
+
+
+def without_queries(text: object) -> str:
+    """The text with every address in it cut at its query."""
+    return _ADDRESS_QUERY.sub(r"\1", str(text))
+
 
 SAMPLE_RATE = 48000
 CHANNELS = 2
@@ -223,7 +234,7 @@ class _Decoder:
         self.failed = False  # the host let us down, as opposed to the file ending
 
     def _warn(self, err: object) -> None:
-        _LOGGER.warning("%s: %s", self._episode.audio_url.split("?")[0], err)
+        _LOGGER.warning("%s: %s", without_queries(self._episode.audio_url), without_queries(err))
 
     async def _open(self) -> None:
         """Ask for the episode and start ffmpeg on it. Slow when the host is."""
