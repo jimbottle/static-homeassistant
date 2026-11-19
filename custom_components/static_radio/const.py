@@ -19,6 +19,7 @@ CONF_SPEAKERS = "speakers"  # media player entity ids that can be tuned to Stati
 CONF_LEADS_MS = "leads_ms"  # entity id -> how far ahead of live to start, in ms
 CONF_NOTIFY_SERVICE = "notify_service"  # the notify action a Support link is sent with
 CONF_ANNOUNCE = "announce"  # whether a stream opens with the station's name, spoken
+CONF_DIALS = "dials"  # speaker entity id -> the button event entity that arms its dial
 
 # How far ahead of the live moment a stream starts, to cover the time a
 # speaker takes to make sound. Static's reference player uses 1.0 s. Measured
