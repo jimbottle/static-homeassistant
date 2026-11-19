@@ -28,7 +28,7 @@ from homeassistant.helpers.event import async_track_point_in_utc_time
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 
-from .api import SCHEDULE_MIN_INTERVAL_S, Fetch, Response, ScheduleClient
+from .api import SCHEDULE_MIN_INTERVAL_S, Fetch, Response, ScheduleClient, log_request
 from .const import DEVELOPER_GUIDE_URL, DOMAIN
 from .schedule import SCHEMA_VERSION, Live, Schedule, ScheduleError, parse_schedule
 from .schedule import live as live_at
@@ -53,6 +53,7 @@ def session_fetch(session: aiohttp.ClientSession) -> Fetch:
 
     async def fetch(url: str, headers: Mapping[str, str]) -> Response:
         timeout = aiohttp.ClientTimeout(total=FETCH_TIMEOUT_S)
+        log_request(url, headers)
         async with session.get(url, headers=dict(headers), timeout=timeout) as resp:
             return Response(resp.status, dict(resp.headers), await resp.read())
 
