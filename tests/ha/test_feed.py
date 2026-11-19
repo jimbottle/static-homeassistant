@@ -145,6 +145,21 @@ async def test_a_redirect_to_a_public_host_is_followed_with_the_same_headers(
     assert aioclient_mock.mock_calls[1][3]["User-Agent"] == "HomeAssistant-Static/0.0.0"
 
 
+async def test_a_signed_redirect_is_asked_exactly_as_given(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A CDN signs its query: decoding %2F there makes it answer 403."""
+    signed = "/new.rss?type=application%2Frss&sig=a%2Bb"
+    aioclient_mock.get(f"https://{PUBLIC}/old.rss", status=302, headers={"Location": signed})
+    aioclient_mock.get(f"https://{PUBLIC}{signed}", text=FEED)
+    fetch = feed_fetch(hass, async_get_clientsession(hass))
+
+    response = await fetch("https://feeds.example/old.rss", HEADERS)
+
+    assert response.status == 200
+    assert str(aioclient_mock.mock_calls[1][1]).endswith(signed)
+
+
 async def test_a_redirect_loop_ends(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
