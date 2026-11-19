@@ -27,6 +27,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.static_radio.api import SCHEDULE_URL, Response
 from custom_components.static_radio.const import (
     CONF_ANNOUNCE,
+    CONF_DIALS,
     CONF_LEADS_MS,
     CONF_NOTIFY_SERVICE,
     CONF_SPEAKERS,
@@ -113,8 +114,14 @@ async def test_configure_takes_speakers_a_lead_for_each_and_a_phone(
     defaults = {str(key): key.default() for key in leads_form.schema}
     assert defaults == {SPEAKER: 1300, OTHER: 1300}
 
-    done = await hass.config_entries.options.async_configure(
+    third = await hass.config_entries.options.async_configure(
         second["flow_id"], {SPEAKER: 1200, OTHER: 850}
+    )
+    assert third["type"] is FlowResultType.FORM
+    assert third["step_id"] == "dials"
+    # A dial button is optional: one speaker is given its button, the other none.
+    done = await hass.config_entries.options.async_configure(
+        third["flow_id"], {SPEAKER: "event.kitchen_button_press"}
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert done["type"] is FlowResultType.CREATE_ENTRY
@@ -123,6 +130,7 @@ async def test_configure_takes_speakers_a_lead_for_each_and_a_phone(
         CONF_NOTIFY_SERVICE: "mobile_app_phone",
         CONF_ANNOUNCE: True,
         CONF_LEADS_MS: {SPEAKER: 1200, OTHER: 850},
+        CONF_DIALS: {SPEAKER: "event.kitchen_button_press"},
     }
     # Saving reloads the entry, and each speaker now has its selector.
     assert hass.states.get(_select_id(hass, entry, SPEAKER)) is not None
@@ -153,7 +161,8 @@ async def test_only_phones_are_offered_and_a_removed_speaker_loses_its_selector(
     second = await hass.config_entries.options.async_configure(
         first["flow_id"], {CONF_SPEAKERS: [SPEAKER], CONF_NOTIFY_SERVICE: "none"}
     )
-    await hass.config_entries.options.async_configure(second["flow_id"], {SPEAKER: 1000})
+    third = await hass.config_entries.options.async_configure(second["flow_id"], {SPEAKER: 1000})
+    await hass.config_entries.options.async_configure(third["flow_id"], {})
     await hass.async_block_till_done(wait_background_tasks=True)
 
     registry = er.async_get(hass)
@@ -178,7 +187,12 @@ async def test_configure_with_no_speakers_and_no_phone_saves_nothing_to_tune(
     )
     await hass.async_block_till_done(wait_background_tasks=True)
     assert done["type"] is FlowResultType.CREATE_ENTRY
-    assert entry.options == {CONF_SPEAKERS: [], CONF_ANNOUNCE: True, CONF_LEADS_MS: {}}
+    assert entry.options == {
+        CONF_SPEAKERS: [],
+        CONF_ANNOUNCE: True,
+        CONF_LEADS_MS: {},
+        CONF_DIALS: {},
+    }
 
 
 async def test_a_lead_outside_the_range_is_refused(

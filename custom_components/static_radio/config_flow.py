@@ -10,6 +10,8 @@ The Configure screen holds the choices that belong to a home:
 - which media players can be tuned to Static;
 - for each of them, the lead: how far ahead of the live moment a stream is
   started, to cover the time that speaker takes to make sound;
+- for each of them, optionally, the button whose double press turns its
+  volume dial into a tuning dial for a few seconds (dial.py);
 - which phone a show's Support link is sent to when a listener asks for it.
 """
 
@@ -29,6 +31,7 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_ANNOUNCE,
+    CONF_DIALS,
     CONF_LEADS_MS,
     CONF_NOTIFY_SERVICE,
     CONF_SPEAKERS,
@@ -64,7 +67,7 @@ class StaticConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class StaticOptionsFlow(OptionsFlowWithReload):
-    """Speakers and the phone first, then a lead for each speaker chosen."""
+    """Speakers and the phone first, then a lead and a dial button for each speaker."""
 
     def __init__(self) -> None:
         self._chosen: dict[str, Any] = {}
@@ -82,7 +85,7 @@ class StaticOptionsFlow(OptionsFlowWithReload):
                 self._chosen[CONF_NOTIFY_SERVICE] = phone
             if self._chosen[CONF_SPEAKERS]:
                 return await self.async_step_leads()
-            return self.async_create_entry(data={**self._chosen, CONF_LEADS_MS: {}})
+            return self.async_create_entry(data={**self._chosen, CONF_LEADS_MS: {}, CONF_DIALS: {}})
 
         # Only phones with the Home Assistant app: other notify actions take
         # different fields, and would not be "your phone" in the reply.
@@ -120,8 +123,10 @@ class StaticOptionsFlow(OptionsFlowWithReload):
         """A lead for each speaker, in milliseconds."""
         speakers: list[str] = self._chosen[CONF_SPEAKERS]
         if user_input is not None:
-            leads = {speaker: int(user_input[speaker]) for speaker in speakers}
-            return self.async_create_entry(data={**self._chosen, CONF_LEADS_MS: leads})
+            self._chosen[CONF_LEADS_MS] = {
+                speaker: int(user_input[speaker]) for speaker in speakers
+            }
+            return await self.async_step_dials()
 
         known: dict[str, int] = self.config_entry.options.get(CONF_LEADS_MS, {})
         schema = vol.Schema(
@@ -141,3 +146,23 @@ class StaticOptionsFlow(OptionsFlowWithReload):
             }
         )
         return self.async_show_form(step_id="leads", data_schema=schema)
+
+    async def async_step_dials(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """For each speaker, the button that arms its dial. Left empty, its dial stays volume."""
+        speakers: list[str] = self._chosen[CONF_SPEAKERS]
+        if user_input is not None:
+            dials = {
+                speaker: user_input[speaker] for speaker in speakers if user_input.get(speaker)
+            }
+            return self.async_create_entry(data={**self._chosen, CONF_DIALS: dials})
+
+        known: dict[str, str] = self.config_entry.options.get(CONF_DIALS, {})
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    speaker, description={"suggested_value": known.get(speaker)}
+                ): selector.EntitySelector(selector.EntitySelectorConfig(domain="event"))
+                for speaker in speakers
+            }
+        )
+        return self.async_show_form(step_id="dials", data_schema=schema)

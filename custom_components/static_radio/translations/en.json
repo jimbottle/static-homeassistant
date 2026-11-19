@@ -35,6 +35,10 @@
       "leads": {
         "title": "Lead for each speaker",
         "description": "How far ahead of the live moment each speaker's stream starts, in milliseconds, to cover the time the speaker takes to make sound. 1000 is a good start; raise it if a speaker is behind other listeners, lower it if it is ahead."
+      },
+      "dials": {
+        "title": "Dial for each speaker",
+        "description": "Optional, for a speaker with its own button and volume dial, such as a Voice Preview Edition on its stock firmware. Choose the speaker's Button press entity, and a double press of the button turns its dial into a tuning dial for a few seconds: each click moves one station along Static's dial, and the volume is put back. Leave a speaker empty and its dial stays a volume dial."
       }
     }
   },

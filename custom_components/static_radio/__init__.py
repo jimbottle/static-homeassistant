@@ -25,6 +25,7 @@ from homeassistant.loader import async_get_integration
 from .api import ScheduleClient
 from .const import DOMAIN
 from .coordinator import SCHEMA_ISSUE, StaticCoordinator, session_fetch
+from .dial import async_setup_dials
 from .intents import async_setup_intents
 from .schedule import parse_schedule
 from .stream import async_setup_stream, prepare_openings, streams_after_unload
@@ -85,6 +86,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: StaticConfigEntry) -> bo
     # finds neither. On a reload this runs at once.
     entry.async_on_unload(async_at_started(hass, speak_the_names))
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    async_setup_dials(hass, entry)
     return True
 
 
