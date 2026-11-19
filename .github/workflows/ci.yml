@@ -2,9 +2,8 @@
 # Jobs are named exactly pre-commit and test; rulesets/main.json requires
 # both by name. hassfest is Home Assistant's own check of the integration's
 # manifest and translations. build makes the release zip with scripts/dist.sh,
-# the script release.yml runs on a tag, and checks what is in it. HACS's own
-# validation is not run yet: it needs the README and the repo's description
-# and topics, which arrive with the first release. The pr-title job applies to Tier 1 only;
+# the script release.yml runs on a tag, and checks what is in it. hacs runs all of
+# HACS's own validation. The pr-title job applies to Tier 1 only;
 # scripts/bootstrap-repo.sh removes the block between the tier1-only markers
 # for Tier 2. Actions are pinned to full commit SHAs (version in the trailing
 # comment), resolved with `gh api` on 2026-10-27.
@@ -84,12 +83,9 @@ jobs:
       - uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
         with:
           category: integration
-          # Two checks are known to fail until the first release and are the
-          # owner's to settle, so they are left out until then
-          # (docs/release-checklist.md): the repo has no topics yet, and the
-          # integration has no icon of its own. Static's logo is Static's and
-          # is not used.
-          ignore: brands topics
+          # Every HACS check runs. The icon is the integration's own
+          # (custom_components/static_radio/brand/, drawn by tools/make_icon.py);
+          # Static's logo is Static's and is not used.
 
   build:
     runs-on: ubuntu-latest

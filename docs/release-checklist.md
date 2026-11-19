@@ -15,8 +15,8 @@ through a pull request.
 - [x] Every review finding on those changes is fixed or answered, and logged
       in [review-findings.md](review-findings.md).
 - [x] No review is open on `main` (2026-11-15).
-- [ ] The reference install runs what `main` holds. It runs #23; #24 is
-      waiting for the laptop to be back on the home network.
+- [x] The reference install runs what `main` holds (deployed 2026-11-15,
+      with the retry and signed-redirect fixes).
 
 ## 2. It has been heard, not only tested
 
@@ -29,9 +29,11 @@ followed by the episode about two seconds later.
 - [ ] Next and previous across the whole dial and back, with the right reply
       at each end.
 - [ ] A bulletin heard where it falls, cut at 30 seconds.
-- [ ] Stop, then play again: lands on the live moment, not where it stopped.
-- [ ] A speaker that drops off the network while playing comes back on its
-      station. Built; tested only against simulated speaker states.
+- [x] Stop, then play again: lands on the live moment, not where it stopped.
+      Paused 86 s through Music Assistant, it came back 0.8 s behind live.
+- [x] A speaker that drops off the network while playing comes back on its
+      station (unplugged and plugged back in, 2026-11-15). A stopped speaker
+      that is unplugged comes back silent.
 - [ ] Two-hour listen across the schedule's daily changeover (about 7 a.m. US
       Central): no drift, no gap longer than the schedule's own.
 - [ ] How long the stream's opening needs to be, measured on the speaker. It
@@ -45,19 +47,17 @@ followed by the episode about two seconds later.
 
 - [ ] A fresh Home Assistant goes from nothing to playing in under ten
       minutes using only the README.
-- [ ] README: screenshots, and which Home Assistant, Music Assistant and
-      speaker firmware versions it was tested on.
-- [ ] The voice sentences: the README says how to switch them on, and what
+- [ ] README: screenshots. The versions it was tested on are listed.
+- [x] The voice sentences: the README says how to switch them on, and what
       they will not capture ("next station" without "Static" is left alone).
-- [ ] `FUTURE_IMPROVEMENTS.md` lists what the first release leaves out, each
+- [x] `FUTURE_IMPROVEMENTS.md` lists what the first release leaves out, each
       with its reason: multi-room groups, languages other than English, the
       default HACS store, a Music Assistant provider, a shorter opening.
-- [ ] Owner: an icon for the integration that is this project's own. Static's
-      logo is Static's. Then take `brands` out of the HACS check's ignore list
-      in `ci.yml`.
-- [ ] Owner: repo topics, for example `home-assistant`, `hacs`,
-      `custom-integration`. Then take `topics` out of the same list.
-- [ ] The `hacs` job in CI passes with nothing ignored.
+- [x] An icon of the project's own: STATIC RADIO in a pixel font
+      (`brand/`, drawn by `tools/make_icon.py`, 2026-11-15).
+- [x] Repo topics (`home-assistant`, `hacs`, `homeassistant-custom-component`,
+      `radio`, `podcasts`), set 2026-11-15.
+- [x] The `hacs` job in CI passes with nothing ignored.
 
 ## 4. Static
 
