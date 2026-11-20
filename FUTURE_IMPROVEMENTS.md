@@ -41,13 +41,16 @@ fetched. Music Assistant's source suggests about 2.2 s would do. Shortening it
 needs measuring on the speaker in a quiet room, station by station, and it
 saves about a second of a first tune.
 
-## The dial without custom firmware
+## A better dial on stock firmware
 
-The Voice Preview Edition's ring could step through the stations. On stock
-firmware it only sends volume changes, and fast turns arrive as one larger step
-while turns at volume 0 or 1 send nothing, so tuning by dial on stock firmware
-is a design that has been measured but not built. The custom-firmware overlay
-in `esphome/` is opt-in and not flashed on the reference speaker.
+The Voice Preview Edition's dial tunes on stock firmware after a double press
+of its button, and that is built. It has limits the firmware sets: the device
+sends only volume changes, so each click is read from one, the volume is put
+back afterwards and its display flickers. A fast turn arrives as one larger
+change and has not been checked by hand. The opt-in overlay in `esphome/` has
+none of these limits, at the cost of running custom firmware
+([docs/dial-firmware.md](docs/dial-firmware.md)). Doing better without it
+needs the stock firmware to report a turn of the dial as an event of its own.
 
 ## More than one speaker, measured
 

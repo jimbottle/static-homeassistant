@@ -59,6 +59,12 @@ changes, what you give up, and how to go back.
 
 ## Known setup snags
 
+- With more than one speaker chosen, voice has to work out which one you
+  mean, and no sentence names a speaker. It takes the speaker that is the
+  same device as the one spoken to, then the only speaker in the same area.
+  A Music Assistant player can be a separate device from the microphone, so
+  give the two the same area, or the reply is "More than one speaker can play
+  Static, so say which one." Tests only: the reference install has one speaker.
 - Tuning by the dial starts from the station the speaker is on. The dial is a
   circle, as Static's own is: on from the last station is the first.
 - A show's Support link exists only for some shows. On 2026-11-19 ten of the

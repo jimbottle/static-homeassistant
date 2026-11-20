@@ -97,8 +97,13 @@ Every sentence has the word "Static" in it. Spoken to a speaker, it understands:
 - "what's the Static support link", and "send me the Static support link", which goes to
   the phone chosen on the Configure screen.
 
-Station names are Static's own and no others: no nicknames. The music goes to the speaker
-you spoke to.
+Station names are Static's own and no others: no nicknames. No sentence names a speaker.
+With one speaker chosen on the Configure screen, the music goes to it. With more than one,
+it goes to the speaker you spoke to: the one that is the same device as the microphone, or
+failing that the only one in the same area. Give each voice device and its speaker the same
+area in Home Assistant, or it will answer that it cannot tell which speaker you mean. This
+matters most through Music Assistant, whose player can be a separate device from the
+microphone. It has been tried with one speaker only.
 
 What it leaves alone, on purpose:
 
