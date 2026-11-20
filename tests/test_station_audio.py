@@ -411,6 +411,49 @@ def test_ffmpeg_seeks_in_a_file_at_a_web_address_on_this_machine(
     assert pitch(part(pcm, at + 200, at + 3300)) == pytest.approx(660, abs=8)
 
 
+def test_a_playlist_in_place_of_a_file_is_refused_and_nothing_it_names_is_fetched(
+    request: pytest.FixtureRequest, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A show's host could answer with a list of addresses inside the home."""
+    with contextlib.suppress(pytest.FixtureLookupError):
+        request.getfixturevalue("socket_enabled")
+    asked: list[str] = []
+
+    class Playlist(http.server.BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            asked.append(self.path)
+            port = self.connection.getsockname()[1]
+            body = (
+                "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:10\n#EXTINF:10,\n"
+                f"http://127.0.0.1:{port}/inside/admin.ts\n#EXT-X-ENDLIST\n"
+            ).encode()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/vnd.apple.mpegurl")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            with contextlib.suppress(BrokenPipeError, ConnectionResetError):
+                self.wfile.write(body)
+
+        def log_message(self, *_args: object) -> None:
+            pass
+
+    server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Playlist)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        host = Host({"two": tone(880, 3000)})
+        host.paths["one"] = f"http://127.0.0.1:{server.server_address[1]}/one.m3u8"
+        schedule = schedule_of(
+            episode("one", 6000), episode("two", 3000), first_starts_ms=heard_first_ms(2500)
+        )
+        pcm = collect(listen_to(schedule, host), OPENING_MS + 3500)
+    finally:
+        server.shutdown()
+    assert asked
+    assert set(asked) == {"/one.m3u8"}
+    assert loudness(part(pcm, OPENING_MS + 200, OPENING_MS + 3300)) == 0
+    assert "ffmpeg could not fetch or read it" in caplog.text
+
+
 def test_when_the_speaker_stops_listening_the_download_stops_at_once() -> None:
     """Not whenever the garbage collector gets to it: the show's host is still sending."""
     host = Host({"one": tone(440, 20_000), "two": tone(880, 3000)})
