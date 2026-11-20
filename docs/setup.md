@@ -27,7 +27,7 @@ Settings → Devices & services → Static Radio (unofficial) → **Configure**.
 | 5 | Choose the phone a Support link is sent to, or none. | With a show on air that has a Support link, "send me the Static support link" puts a notification on that phone. | Not yet verified. On 2026-11-19 no show with a link was on air; the "has no Support link" reply was heard |
 | 6 | Leave "Say the station's name when tuning" on, or switch it off. | Tuning from the selector opens with the station's name, spoken. Tuning by voice does not repeat it. | Verified 2026-11-19 |
 | 7 | Set each speaker's lead. Keep 1300 ms for a Voice Preview Edition through Music Assistant. | The speaker is within about a second of Static's web player on the same station. | Verified 2026-11-18: 1.07 s behind the timeline (median of 9 stations); the web player was 0.90 s behind |
-| 8 | Optional: give a speaker its "Button press" entity, to tune with its volume dial. | A double press of the button, then one click of the dial, moves one station along and says its name; the volume ends where it began. Ten seconds later the dial is volume again. | Saved and loaded: verified 2026-11-19. Tuning by the dial: not yet verified |
+| 8 | Optional: give a speaker its "Button press" entity, to tune with its volume dial. | A double press of the button, then one click of the dial, moves one station along and says its name; the volume ends where it began. Ten seconds later the dial is volume again. | Saved and loaded: verified 2026-11-19. Browsing one click at a time, each name said and the station stopped on loaded: verified 2026-11-20. A fast turn, and a click against the end of the dial: not yet verified |
 
 ## Voice
 
@@ -46,9 +46,9 @@ Settings → Devices & services → Static Radio (unofficial) → **Configure**.
 
 ## Known setup snags
 
-- A speaker's dial button reads "unknown" after Home Assistant restarts, and
-  the first double press after a restart does not arm the dial. Press once
-  and wait ten seconds.
+- Tuning by the dial starts from the station the speaker is on. On the last
+  station a clockwise click has nowhere to go, and the speaker says that
+  station's name again.
 - A show's Support link exists only for some shows. On 2026-11-19 ten of the
   day's 184 episodes had one, so step 5 can only be tried while one of them
   is on air.
