@@ -14,13 +14,14 @@ from unittest.mock import patch
 
 import pytest
 from freezegun.api import FrozenDateTimeFactory
-from homeassistant.core import Context, HomeAssistant, ServiceCall
+from homeassistant.core import Context, HomeAssistant, ServiceCall, State
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import (
     MockConfigEntry,
     async_fire_time_changed,
     async_mock_service,
+    mock_restore_cache,
 )
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
@@ -538,6 +539,31 @@ async def test_custom_firmware_tunes_by_its_dial_only_while_static_plays(
     await _rest(hass, freezer, 60)  # past the time a station is given to start
     await _plays(hass, "playing", "Jazz FM")
     assert _state(hass, SWITCH) == "off"  # the dial is the volume dial for everything else
+
+
+async def test_custom_firmware_is_shown_the_station_again_when_the_integration_reloads(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    played: list[ServiceCall],
+    device: None,
+) -> None:
+    entry = await _set_up(hass, aioclient_mock, schedule_text, firmware=True)
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "News"}, blocking=True
+    )
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+    # The device was flashed, or restarted: its number is back at 0.
+    hass.states.async_set(PLACE, "0")
+    selector = er.async_get(hass).async_get_entity_id(
+        "select", DOMAIN, f"{entry.entry_id}_{SPEAKER}_station"
+    )
+    assert selector is not None
+    mock_restore_cache(hass, [State(selector, "News")])
+    assert await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert _state(hass, PLACE) == "4.0"
 
 
 async def test_a_speaker_given_no_button_keeps_its_volume_dial(

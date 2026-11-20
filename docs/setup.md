@@ -55,7 +55,7 @@ changes, what you give up, and how to go back.
 
 | # | Step | How to tell it worked | Status |
 |---|---|---|---|
-| 14 | Optional: compile and flash `esphome/static-dial.yaml` (see [dial-firmware.md](dial-firmware.md)). | The device gains "Static dial", "Static dial: hold to tune" and "Static dial station". With Static playing, a turn of the dial says the next station and one LED moves with it; with Static stopped, a turn is the volume. | Compiles; not yet flashed on a device |
+| 14 | Optional: compile and flash `esphome/static-dial.yaml` (see [dial-firmware.md](dial-firmware.md)). | The device gains "Static dial", "Static dial: hold to tune" and "Static dial station". With Static playing, a turn of the dial says the next station and one LED moves with it; with Static stopped, a turn is the volume. | Flashed 2026-11-20 and the three entities appeared. The dial and the ring: not yet verified |
 
 ## Known setup snags
 
