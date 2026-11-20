@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING
 
 from aiohttp import web
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import network
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.http import HomeAssistantView
@@ -228,6 +229,10 @@ class StationStreamView(HomeAssistantView):
         """One listen: from the live moment, until the speaker stops reading."""
         entry = self._entry()
         if entry is None or not _from_home(request, await _own_networks(self._hass)):
+            return web.Response(status=HTTPStatus.NOT_FOUND)
+        if network.is_cloud_connection(self._hass):
+            # Remote access through Home Assistant Cloud arrives from an address
+            # on this machine, and it is not the tuned speaker.
             return web.Response(status=HTTPStatus.NOT_FOUND)
         keys: dict[str, str] = entry.data.get(CONF_STREAM_KEYS, {})
         speaker = next(
