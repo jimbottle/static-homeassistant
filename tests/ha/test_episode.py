@@ -29,6 +29,7 @@ from custom_components.static_radio.episode import (
     _from_this_machine,
     episode_opener,
 )
+from custom_components.static_radio.mp3seek import HEAD_BYTES, Mp3Info, plan_probe
 from custom_components.static_radio.schedule import Episode
 from custom_components.static_radio.station_audio import EpisodeFailedError
 
@@ -267,6 +268,21 @@ async def test_a_file_that_is_not_an_mp3_is_reached_through_this_machine_only(
     # Once ffmpeg is done, the address stops working.
     source.release()  # type: ignore[attr-defined]
     assert (await client.get(path)).status == 404  # type: ignore[attr-defined]
+
+
+async def test_one_chance_frame_header_does_not_make_a_file_an_mp3(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_client_no_auth: ClientSessionGenerator,
+) -> None:
+    # Compressed audio holds four bytes that read as an MP3 frame header about
+    # one time in three. Taken for an MP3, the file was cut at a made-up byte
+    # and its slot was silent.
+    chance = M4A[:64] + b"\xff\xfb\x90\x00" + M4A[64:]
+    assert isinstance(plan_probe(chance[:HEAD_BYTES], len(chance)), Mp3Info)
+    serve(aioclient_mock, M4A_AT, chance)
+    _client, _path, source = await _relay(hass, hass_client_no_auth, 600_000)
+    assert source.seek_ms == 600_000  # type: ignore[attr-defined]
 
 
 async def test_a_redirect_into_the_house_is_refused_by_the_relay_too(
