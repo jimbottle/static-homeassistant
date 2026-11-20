@@ -50,6 +50,10 @@ from .schedule import Episode
 from .station_audio import EpisodeFailedError, OpenEpisode, Source
 
 MIN_SEEK_MS = 1000  # the reference starts at the top with a second or less to skip
+# Frames in a row before a file with no ID3 tag is taken for an MP3. Four bytes
+# that look like one frame header turn up by chance in a third of all files'
+# first 8 KB of compressed audio; a real MP3's head holds a hundred or more.
+MIN_MP3_FRAMES = 3
 MAX_REDIRECTS = 8  # a show's measurement services can add several hops
 CONNECT_TIMEOUT_S = 10
 READ_TIMEOUT_S = 30  # between two reads; a whole episode takes as long as it plays
@@ -178,12 +182,20 @@ class _Host:
             if head is None:  # no ranges: from the top
                 return Source(chunks=self.chunks(url, 0))
             data, total = head
-            if data.startswith(b"ID3") or plan_probe(data, total) is not None:
+            if _is_mp3(data, total):
                 at = await self.mp3_byte(episode, data, total, start_ms)
                 return Source(chunks=self.chunks(url, at))
         except _FAILURES as err:
             raise EpisodeFailedError(str(err) or type(err).__name__) from err
         return self.relayed(url, start_ms if start_ms > MIN_SEEK_MS else 0)
+
+
+def _is_mp3(head: bytes, total: int | None) -> bool:
+    """Whether a file's first bytes are an MP3's, and not another format's by chance."""
+    if head.startswith(b"ID3"):
+        return True
+    info = plan_probe(head, total)
+    return isinstance(info, Mp3Info) and info.walked >= MIN_MP3_FRAMES
 
 
 def episode_opener(
