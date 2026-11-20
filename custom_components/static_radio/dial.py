@@ -93,6 +93,7 @@ SAY_REST_S = 0.12  # a name is said once no click has come for this long, so a f
 TUNE_REST_S = 2.0  # with the name said early: load the station after this long at rest
 PRESS_FRESH_S = 10.0  # a press older than this is one remembered from before a restart
 STEP = 0.05  # the volume change of one click, of a full range of 1
+TUNE_LIMIT_S = 30.0  # a load takes 2 to 3 s (measured); one still going after this is given up
 STEP_SLACK = 0.006  # a player that keeps whole percents rounds a step by up to this
 DRIFT = 0.02  # a change smaller than this that is not a step is the device, not a person
 ARM_PRESS = "double_press"  # the button event that arms the dial
@@ -441,12 +442,18 @@ class Dial:
                 current = tuned_station(self._hass, self._speaker)
                 if current is not None and current.station_id == target.station_id:
                     return  # back where it started
-                await async_tune(
-                    self._hass,
-                    self._speaker,
-                    name=target.display_name,
-                    # The name has been said already when the device says names itself.
-                    say=self._announcer is None,
+                # A speaker that stops answering must not hold the dial for good.
+                async with asyncio.timeout(TUNE_LIMIT_S):
+                    await async_tune(
+                        self._hass,
+                        self._speaker,
+                        name=target.display_name,
+                        # The name has been said already when the device says names itself.
+                        say=self._announcer is None,
+                    )
+            except TimeoutError:
+                _LOGGER.warning(
+                    "The dial gave up on tuning %s after %.0f s", self._speaker, TUNE_LIMIT_S
                 )
             except TuneError as err:
                 _LOGGER.debug("dial: %s", err)

@@ -9,7 +9,7 @@ volume the way the device would report it.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
@@ -32,6 +32,7 @@ from custom_components.static_radio.dial import (
     ARMED_S,
     REST_S,
     SAY_REST_S,
+    TUNE_LIMIT_S,
     TUNE_REST_S,
     announcer_for,
     clicks_in,
@@ -304,6 +305,27 @@ async def test_a_press_remembered_across_a_restart_does_not_arm_the_dial_and_a_n
     assert len(played) == 1
 
 
+async def _spin(hass: HomeAssistant, until: Callable[[], bool] | None = None) -> None:
+    """Let what is ready run, without waiting for a load that is being held up."""
+    for _ in range(2000):
+        await asyncio.sleep(0)
+        if until is not None and until():
+            return
+
+
+async def _rest_while_loading(
+    hass: HomeAssistant,
+    freezer: FrozenDateTimeFactory,
+    seconds: float,
+    until: Callable[[], bool] | None = None,
+) -> None:
+    """As _rest, for when a load is held up and block_till_done would never return."""
+    await _spin(hass)
+    freezer.tick(timedelta(seconds=seconds))
+    async_fire_time_changed(hass)
+    await _spin(hass, until)
+
+
 async def test_a_turn_made_while_a_station_loads_is_tuned_after_it_not_lost(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
@@ -331,28 +353,54 @@ async def test_a_turn_made_while_a_station_loads_is_tuned_after_it_not_lost(
         DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Work"}, blocking=True
     )
     await _press(hass, freezer, "double_press")
+    try:
+        hass.states.async_set(OWN, "idle", {"volume_level": 0.30})  # on one, to Learn
+        await _rest_while_loading(hass, freezer, REST_S, lambda: len(asked) == 2)
+        assert asked[1:] == ["learn_01.flac"]  # and Learn is still loading
 
-    async def rest_without_waiting() -> None:
-        freezer.tick(timedelta(seconds=REST_S))
-        async_fire_time_changed(hass)
-        for _ in range(50):
-            await asyncio.sleep(0)
-
-    hass.states.async_set(OWN, "idle", {"volume_level": 0.30})  # on one, to Learn
-    for _ in range(50):
-        await asyncio.sleep(0)
-    await rest_without_waiting()
-    assert asked[1:] == ["learn_01.flac"]  # and Learn is still loading
-
-    hass.states.async_set(OWN, "idle", {"volume_level": 0.20})  # back one, to Work
-    for _ in range(50):
-        await asyncio.sleep(0)
-    await rest_without_waiting()
-    loading.set()
+        hass.states.async_set(OWN, "idle", {"volume_level": 0.20})  # back one, to Work
+        await _rest_while_loading(hass, freezer, REST_S)
+    finally:
+        loading.set()
     await hass.async_block_till_done(wait_background_tasks=True)
 
     assert asked[1:] == ["learn_01.flac", "work_01.flac"]  # it ends where the dial is
     assert most_at_once == 1
+
+
+async def test_a_load_that_never_finishes_does_not_hold_the_dial_for_good(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    put_back: list[float],
+) -> None:
+    stuck = asyncio.Event()  # never set while the test looks: the speaker stopped answering
+    asked: list[str] = []
+
+    async def play(call: ServiceCall) -> None:
+        asked.append(call.data["media_content_id"].rsplit("/", 1)[1])
+        if len(asked) == 2:
+            await stuck.wait()
+
+    hass.services.async_register("media_player", "play_media", play)
+    await _set_up(hass, aioclient_mock, schedule_text)
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Work"}, blocking=True
+    )
+    await _press(hass, freezer, "double_press")
+    try:
+        hass.states.async_set(OWN, "idle", {"volume_level": 0.30})  # on one, to Learn
+        await _rest_while_loading(hass, freezer, REST_S, lambda: len(asked) == 2)
+        hass.states.async_set(OWN, "idle", {"volume_level": 0.30})  # and one more, to News
+        await _rest_while_loading(hass, freezer, REST_S)
+        assert asked[1:] == ["learn_01.flac"]  # News waits its turn
+
+        await _rest_while_loading(hass, freezer, TUNE_LIMIT_S, lambda: len(asked) == 3)
+        assert asked[1:] == ["learn_01.flac", "news_01.flac"]
+    finally:
+        stuck.set()
+    await hass.async_block_till_done(wait_background_tasks=True)
 
 
 async def test_a_click_that_arrives_with_the_volume_being_put_back_is_still_counted(
