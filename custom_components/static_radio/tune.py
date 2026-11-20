@@ -9,7 +9,7 @@ Which station:
 
 - A name means that station. Only Static's own names are stations (tuner.py).
 - A step means that many places along the dial from the speaker's station.
-  The dial has two ends and does not wrap.
+  The dial is a circle: on from the last station is the first.
 - Neither means the station this speaker was last tuned to, or the first on
   the dial for a speaker that has never been tuned.
 
@@ -32,7 +32,7 @@ from homeassistant.helpers import entity_registry as er
 
 from .const import CONF_SPEAKERS, DOMAIN
 from .schedule import Station
-from .tuner import end_of_dial_reply, find_station, step, unknown_station_reply
+from .tuner import find_station, step, unknown_station_reply
 
 if TYPE_CHECKING:
     from . import StaticConfigEntry
@@ -134,12 +134,8 @@ def pick_station(
             raise TuneError(unknown_station_reply(stations))
         return named
     if by:
-        stepped = step(stations, current.station_id if current else None, by)
-        if stepped is None:
-            # Only reached with a current station: with none, a step lands on the first.
-            assert current is not None  # noqa: S101
-            raise TuneError(end_of_dial_reply(current, by))
-        return stepped
+        # Never None here: the dial has stations.
+        return step(stations, current.station_id if current else None, by) or stations[0]
     return current or stations[0]
 
 

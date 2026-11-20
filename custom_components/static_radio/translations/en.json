@@ -64,7 +64,7 @@
         },
         "step": {
           "name": "Step",
-          "description": "How many places to move along the dial: 1 for the next station, -1 for the one before. The dial does not wrap."
+          "description": "How many places to move along the dial: 1 for the next station, -1 for the one before. The dial is a circle: on from the last station is the first."
         }
       }
     }

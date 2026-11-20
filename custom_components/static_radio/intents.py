@@ -4,8 +4,8 @@ Four intents tune the speaker that was spoken to (tune.py does the work):
 
 - StaticPlay comes back to the station that speaker was last on.
 - StaticTune goes to the station named, by Static's own name for it.
-- StaticNext and StaticPrevious move one place along the dial, which has two
-  ends and does not wrap.
+- StaticNext and StaticPrevious move one place along the dial, which is a
+  circle: next from the last station is the first.
 
 Each answers with the station's name as Static writes it, which is the
 owner's rule for every change of station. The stream then opens without

@@ -40,30 +40,22 @@ def find_station(stations: Sequence[Station], said: str) -> Station | None:
 def step(stations: Sequence[Station], current_id: str | None, by: int) -> Station | None:
     """The station `by` places along the dial from the current one.
 
-    The dial has two ends and does not wrap: stepping past an end gives None,
-    and the caller says so. With nothing tuned yet, or a station that has left
-    the dial, any step lands on the first station.
+    The dial is a circle, as Static's own is: a step on from the last station
+    lands on the first, and a step back from the first on the last. With
+    nothing tuned yet, or a station that has left the dial, any step lands on
+    the first station. None only when the dial has no stations.
     """
     if not stations:
         return None
     index = next((i for i, s in enumerate(stations) if s.station_id == current_id), None)
     if index is None:
         return stations[0]
-    target = index + by
-    if target < 0 or target >= len(stations):
-        return None
-    return stations[target]
+    return stations[(index + by) % len(stations)]
 
 
 def tuned_reply(station: Station) -> str:
     """Said whenever the station changes: which station it is now."""
     return f"Playing Static {station.display_name}."
-
-
-def end_of_dial_reply(station: Station, by: int) -> str:
-    """Said when a step would run off the end of the dial. The station stays as it is."""
-    end = "last" if by > 0 else "first"
-    return f"Static {station.display_name} is the {end} station on the dial."
 
 
 def unknown_station_reply(stations: Sequence[Station]) -> str:
