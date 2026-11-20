@@ -1,6 +1,6 @@
 """Holds the day's schedule for the rest of the integration.
 
-Three jobs:
+Four jobs:
 
 - Ask api.py for the schedule every 15 minutes, and only while something is
   listening for it. A failed request keeps the copy in hand.
