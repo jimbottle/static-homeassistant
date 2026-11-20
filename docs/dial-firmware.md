@@ -40,7 +40,9 @@ The overlay adds three entities to the device:
   and 0 for none. The integration sets it; the ring lights that LED.
 
 With "Static dial" on, a turn with the button held no longer changes the
-group volume or the ring's colour, as it does on stock firmware.
+group volume or the ring's colour, as it does on stock firmware. The ring
+shows what that turn did, the volume or the station, where the stock ring
+lights whole under a held button.
 
 ## What you give up
 

@@ -100,7 +100,7 @@ def test_build_command_names_the_release_that_built_the_stock_image() -> None:
     assert "esphome==2026.6.0 compile" in OVERLAY.read_text(encoding="utf-8")
 
 
-def test_reaches_into_stock_by_four_ids_only() -> None:
+def test_reaches_into_stock_by_five_ids_only() -> None:
     config = _load()
     touched = {
         item_id.value
@@ -112,6 +112,7 @@ def test_reaches_into_stock_by_four_ids_only() -> None:
         "button_press_event",
         "voice_assistant_leds",  # one more effect for the ring
         "control_leds_dial_touched",  # which effect a turn shows
+        "control_leds_center_button_touched",  # a held turn shows it too
     }
     removed_items = [
         item_id
@@ -208,3 +209,18 @@ def test_a_turn_that_tunes_shows_the_station_and_any_other_shows_the_volume() ->
     assert set(re.findall(r'"([\w ]+)"', effect.value)) == {"Static Station", "Volume Display"}
     place = next(n for n in config["number"] if n["id"] == "static_dial_station")
     assert (place["min_value"], place["max_value"]) == (0, 12)  # the ring has 12 LEDs
+
+
+def test_a_held_turn_shows_what_it_did_only_while_the_static_dial_is_on() -> None:
+    removed, shown = (
+        s
+        for s in _load()["script"]
+        if s["id"] == Tagged("!extend", "control_leds_center_button_touched")
+    )
+    assert removed["then"] == Tagged("!remove", None)
+    (step,) = shown["then"]
+    condition = step["if"]["condition"]["lambda"]
+    assert "id(dial_touched)" in condition and "id(static_dial).state" in condition
+    assert step["if"]["then"] == [{"script.execute": "control_leds_dial_touched"}]
+    (stock,) = step["if"]["else"]
+    assert stock["light.turn_on"]["effect"] == "Center Button Touched"
