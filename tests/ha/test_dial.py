@@ -26,12 +26,21 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.static_radio.api import SCHEDULE_URL, Response
 from custom_components.static_radio.const import CONF_DIALS, CONF_SPEAKERS, DOMAIN, TITLE
-from custom_components.static_radio.dial import ARMED_S, REST_S, clicks_in, volume_player_for
+from custom_components.static_radio.dial import (
+    ARMED_S,
+    REST_S,
+    SAY_REST_S,
+    TUNE_REST_S,
+    announcer_for,
+    clicks_in,
+    volume_player_for,
+)
 
 START = datetime(2026, 11, 12, 18, 0, 0, tzinfo=UTC)
 SPEAKER = "media_player.kitchen_speaker"  # the player that is tuned
 OWN = "media_player.kitchen_puck_media_player"  # the device's own player
 BUTTON = "event.kitchen_puck_button_press"
+VOICE = "assist_satellite.kitchen_puck_assist_satellite"  # what says a name at once
 HOME = 0.25  # the volume the speaker is at
 
 
@@ -66,7 +75,12 @@ def put_back(hass: HomeAssistant) -> list[float]:
 
 
 async def _set_up(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, text: str, *, dial: bool = True
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    text: str,
+    *,
+    dial: bool = True,
+    voice: bool = False,
 ) -> MockConfigEntry:
     aioclient_mock.get(SCHEDULE_URL, text=text)
     options = {CONF_SPEAKERS: [SPEAKER], CONF_DIALS: {SPEAKER: BUTTON} if dial else {}}
@@ -78,7 +92,7 @@ async def _set_up(
         config_entry_id=puck.entry_id, identifiers={("esphome", "puck")}
     )
     entities = er.async_get(hass)
-    for entity_id in (OWN, BUTTON):
+    for entity_id in (OWN, BUTTON, *([VOICE] if voice else [])):
         domain, name = entity_id.split(".")
         entities.async_get_or_create(
             domain, "esphome", name, suggested_object_id=name, device_id=device.id
@@ -258,7 +272,7 @@ async def test_a_volume_somebody_set_is_kept_and_is_not_a_click(
     assert len(played) == 1
 
 
-async def test_a_button_coming_back_after_a_restart_does_not_arm_the_dial(
+async def test_a_press_remembered_across_a_restart_does_not_arm_the_dial_and_a_new_one_does(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     schedule_text: str,
@@ -269,11 +283,81 @@ async def test_a_button_coming_back_after_a_restart_does_not_arm_the_dial(
     await _set_up(hass, aioclient_mock, schedule_text)
     hass.states.async_set(BUTTON, "unavailable")
     await hass.async_block_till_done()
-    await _press(hass, freezer, "double_press")  # its last press, restored
-
+    # Back after a restart, showing a double press made an hour ago.
+    hass.states.async_set(BUTTON, "2026-11-12T17:00:00.000+00:00", {"event_type": "double_press"})
+    await hass.async_block_till_done()
     await _turn(hass, 0.30)
     await _rest(hass, freezer, 1)
     assert played == []
+
+    # A button that has not been pressed since the restart reads "unknown".
+    hass.states.async_set(BUTTON, "unknown")
+    await hass.async_block_till_done()
+    await _press(hass, freezer, "double_press")
+    await _turn(hass, 0.35)
+    await _rest(hass, freezer, REST_S)
+    assert len(played) == 1
+
+
+async def test_a_click_that_arrives_with_the_volume_being_put_back_is_still_counted(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text)
+    async_mock_service(hass, "media_player", "volume_set")  # asked for, but slow to land
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Nature"}, blocking=True
+    )
+    await _press(hass, freezer, "double_press")
+
+    await _turn(hass, 0.35)  # two clicks
+    await _turn(hass, 0.45)  # two more before the volume is back
+    await _turn(hass, 0.35)  # put back to 0.25 and two more clicks, as one change
+    await _turn(hass, 0.25)  # put back, and nothing else
+    await _rest(hass, freezer, REST_S)
+    assert _stations(played)[1:] == ["make_01.flac"]  # six along from Nature
+
+
+async def test_a_device_that_can_speak_says_each_station_at_once_and_loads_the_one_stopped_on(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    put_back: list[float],
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text, voice=True)
+    assert announcer_for(hass, BUTTON) == VOICE
+    said = async_mock_service(hass, "assist_satellite", "announce")
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Work"}, blocking=True
+    )
+    await _press(hass, freezer, "double_press")
+
+    # Three clicks, each well inside the wait before a station is loaded.
+    for _ in range(3):
+        await _turn(hass, 0.30)
+        await _rest(hass, freezer, SAY_REST_S)
+        await _rest(hass, freezer, 0.5)
+    assert [call.data["message"] for call in said] == ["Learn", "News", "Weird"]
+    assert said[0].data["entity_id"] == VOICE
+    assert said[0].data["preannounce"] is False
+    assert len(played) == 1  # nothing loaded while the dial is still being turned
+
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert _stations(played)[1:] == ["weird_01.flac?quiet=1"]  # the name was said already
+
+    # One click on and one back: both names are said, and nothing is loaded again.
+    await _turn(hass, 0.30)
+    await _rest(hass, freezer, SAY_REST_S)
+    await _turn(hass, 0.20)
+    await _rest(hass, freezer, SAY_REST_S)
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert [call.data["message"] for call in said][3:] == ["Unite", "Weird"]
+    assert len(played) == 2
 
 
 async def test_a_speaker_given_no_button_keeps_its_volume_dial(
