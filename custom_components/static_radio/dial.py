@@ -57,6 +57,7 @@ speaker this file:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Sequence
@@ -92,6 +93,7 @@ SAY_REST_S = 0.12  # a name is said once no click has come for this long, so a f
 TUNE_REST_S = 2.0  # with the name said early: load the station after this long at rest
 PRESS_FRESH_S = 10.0  # a press older than this is one remembered from before a restart
 STEP = 0.05  # the volume change of one click, of a full range of 1
+TUNE_LIMIT_S = 30.0  # a load takes 2 to 3 s (measured); one still going after this is given up
 STEP_SLACK = 0.006  # a player that keeps whole percents rounds a step by up to this
 DRIFT = 0.02  # a change smaller than this that is not a step is the device, not a person
 ARM_PRESS = "double_press"  # the button event that arms the dial
@@ -178,6 +180,7 @@ class Dial:
         self._home: float | None = None  # the volume to keep, as it was when armed
         self._putting_back = False
         self._target: Station | None = None  # the station the dial is on, while armed
+        self._tuning = asyncio.Lock()  # held while a station the dial chose is loading
         self._said: str | None = None  # the station id last said aloud
         self._saying = False
         self._say_rest: CALLBACK_TYPE | None = None
@@ -427,21 +430,35 @@ class Dial:
             )
 
     async def _tune(self, target: Station) -> None:
-        try:
-            current = tuned_station(self._hass, self._speaker)
-            if current is not None and current.station_id == target.station_id:
-                return  # back where it started, or already at that end of the dial
-            await async_tune(
-                self._hass,
-                self._speaker,
-                name=target.display_name,
-                # The name has been said already when the device says names itself.
-                say=self._announcer is None,
-            )
-        except TuneError as err:
-            _LOGGER.debug("dial: %s", err)
-        except HomeAssistantError as err:
-            _LOGGER.warning("The dial could not tune %s: %s", self._speaker, err)
+        # One load at a time. The speaker's station is only known once a load
+        # has finished, so a turn made during one waits for it: read sooner, a
+        # turn back to the station it left would look like nothing to do, and
+        # the speaker would stay on the station the dial had moved off.
+        async with self._tuning:
+            on = self._target
+            if on is not None and on.station_id != target.station_id:
+                return  # the dial has moved on, and that turn has its own load
+            try:
+                current = tuned_station(self._hass, self._speaker)
+                if current is not None and current.station_id == target.station_id:
+                    return  # back where it started
+                # A speaker that stops answering must not hold the dial for good.
+                async with asyncio.timeout(TUNE_LIMIT_S):
+                    await async_tune(
+                        self._hass,
+                        self._speaker,
+                        name=target.display_name,
+                        # The name has been said already when the device says names itself.
+                        say=self._announcer is None,
+                    )
+            except TimeoutError:
+                _LOGGER.warning(
+                    "The dial gave up on tuning %s after %.0f s", self._speaker, TUNE_LIMIT_S
+                )
+            except TuneError as err:
+                _LOGGER.debug("dial: %s", err)
+            except HomeAssistantError as err:
+                _LOGGER.warning("The dial could not tune %s: %s", self._speaker, err)
 
 
 @callback
