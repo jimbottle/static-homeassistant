@@ -14,7 +14,9 @@ press" event. This file turns those two facts into a tuning dial:
   device says the name of the station the dial is now on, through its own
   announcements, about half a second after the click (measured). Only when
   the dial has rested for TUNE_REST_S is that station loaded, so the stations
-  passed on the way are never fetched from their shows' hosts.
+  passed on the way are never fetched from their shows' hosts. A listener
+  hearing each name out clicks every 0.7 to 1.5 s (measured), so the rest has
+  to be longer than that.
 - A device with no announcements of its own cannot say the name early. Its
   station is loaded after REST_S, and the stream opens with the name.
 - Static's dial has two ends and does not wrap, so a long turn stops at the
@@ -28,6 +30,13 @@ change; a change towards the kept volume while it is being put back is read
 as "put back, then clicks". What the dial cannot do this way: turn past
 volume 0 or 1 (the device reports nothing there), and count a click the other
 way that crosses the volume being put back.
+
+The volume kept is the one the speaker had when the dial was armed. It moves
+only when somebody sets the volume, or on a change too big to be drift: the
+reference speaker's volume crept by 0.01 around announcements, and following
+that walked the volume up. A change that lands exactly on 0 or 1 is a click
+against the end of the range, however small, and never a volume to keep:
+keeping 0 left the reference speaker muted.
 
 The volume is put back through the speaker chosen on the Configure screen and
 not through the device's own player, which a home may keep hands off.
@@ -69,10 +78,11 @@ _LOGGER = logging.getLogger(__name__)
 ARMED_S = 8.0  # how long the dial tunes after a double press, and after each click
 REST_S = 0.3  # with no early name: the dial has stopped when no click has come for this long
 SAY_REST_S = 0.12  # a name is said once no click has come for this long, so a flick says one
-TUNE_REST_S = 1.2  # with the name said early: load the station after this long at rest
+TUNE_REST_S = 2.0  # with the name said early: load the station after this long at rest
 PRESS_FRESH_S = 10.0  # a press older than this is one remembered from before a restart
 STEP = 0.05  # the volume change of one click, of a full range of 1
 STEP_SLACK = 0.006  # a player that keeps whole percents rounds a step by up to this
+DRIFT = 0.02  # a change smaller than this that is not a step is the device, not a person
 ARM_PRESS = "double_press"  # the button event that arms the dial
 
 _GONE = (STATE_UNAVAILABLE, STATE_UNKNOWN)
@@ -127,7 +137,7 @@ class Dial:
         self._armed_until = 0.0
         self._home: float | None = None  # the volume to keep, as it was when armed
         self._putting_back = False
-        self._target: Station | None = None  # the station the dial is on, while it turns
+        self._target: Station | None = None  # the station the dial is on, while armed
         self._said: str | None = None  # the station id last said aloud
         self._saying = False
         self._say_rest: CALLBACK_TYPE | None = None
@@ -188,10 +198,14 @@ class Dial:
             if abs(change) <= STEP_SLACK:
                 return
         clicks = clicks_in(change)
-        if new.context.user_id is not None or new.context.parent_id is not None or not clicks:
-            # Somebody set the volume, by voice, a dashboard or an automation.
-            self._home = float(now)
-            self._putting_back = False
+        by_someone = new.context.user_id is not None or new.context.parent_id is not None
+        if not by_someone and not clicks and now in (0.0, 1.0):
+            clicks = 1 if change > 0 else -1  # a click cut short by the end of the range
+        if by_someone or not clicks:
+            if by_someone or abs(change) >= DRIFT:
+                # Somebody set the volume, by voice, a dashboard or an automation.
+                self._home = float(now)
+                self._putting_back = False
             return
         self._armed_until = time.monotonic() + ARMED_S
         self._put_back()
@@ -205,6 +219,7 @@ class Dial:
         if not self.armed:
             self._home = float(volume)
             self._putting_back = False
+            self._target = None  # the dial starts from the station the speaker is on
         self._armed_until = time.monotonic() + ARMED_S
 
     def _put_back(self) -> None:
@@ -237,18 +252,15 @@ class Dial:
             return
         if not stations:
             return
-        if self._tune_rest is None:
-            # A new turn starts from the station the speaker is on.
-            self._target = current
-            self._said = current.station_id if current is not None else None
         on = self._target
-        index = next(
-            (i for i, s in enumerate(stations) if on and s.station_id == on.station_id), None
-        )
-        if index is None:
-            self._target = stations[0]  # never tuned: any click lands on the first station
-        else:
-            self._target = stations[max(0, min(len(stations) - 1, index + clicks))]
+        if on is None:
+            # The first click since the dial was armed starts from the speaker's
+            # station. Later ones start from where the dial is, which a station
+            # still being loaded has not caught up with.
+            self._said = current.station_id if current is not None else None
+            on, clicks = (current, clicks) if current is not None else (stations[0], 0)
+        index = next((i for i, st in enumerate(stations) if st.station_id == on.station_id), 0)
+        self._target = stations[max(0, min(len(stations) - 1, index + clicks))]
         self._cancel_rests()
         if self._announcer is None:
             self._tune_rest = async_call_later(self._hass, REST_S, self._rested)
@@ -287,7 +299,7 @@ class Dial:
     @callback
     def _rested(self, _now: object) -> None:
         self._tune_rest = None
-        target, self._target = self._target, None
+        target = self._target
         if target is not None:
             self._hass.async_create_task(
                 self._tune(target), f"static_radio dial tune {self._speaker}"
