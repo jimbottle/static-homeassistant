@@ -343,7 +343,9 @@ async def test_a_speaker_out_of_reach_is_not_asked_and_is_not_called_playing(
     with pytest.raises(HomeAssistantError, match="not available to play Static"):
         await _tune(hass, station="News")
     assert played == []
-    assert hass.states.get(_selector(hass, entry, KITCHEN)).state == "unknown"
+    selector = hass.states.get(_selector(hass, entry, KITCHEN))
+    assert selector is not None
+    assert selector.state == "unknown"
 
 
 async def test_a_speaker_that_is_gone_points_at_the_configure_screen(
