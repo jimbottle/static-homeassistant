@@ -56,6 +56,12 @@ There is no release yet. Until there is, install it by hand:
 4. The next screen sets each speaker's lead (see [Timing](#timing)). The default,
    1300 ms, was measured on a Voice Preview Edition through Music Assistant.
 
+5. Optionally, the last screen gives a speaker its "Button press" entity, so that its
+   volume dial tunes for a few seconds after a double press.
+
+[docs/setup.md](docs/setup.md) lists every setup step with how to tell it worked and
+whether it has been verified by hand.
+
 Each speaker chosen gets a station selector, which you can put on a dashboard. Once a
 release is out, it installs through HACS as a custom repository instead.
 
