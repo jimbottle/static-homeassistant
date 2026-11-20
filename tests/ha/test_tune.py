@@ -67,6 +67,10 @@ async def _set_up(
     entry.add_to_hass(hass)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
+    # In Home Assistant and in reach: a speaker that is not is refused (play.py).
+    for speaker in speakers:
+        if hass.states.get(speaker) is None:
+            hass.states.async_set(speaker, "idle")
     return entry
 
 
@@ -323,6 +327,39 @@ async def test_a_speaker_that_fails_is_said_plainly(
         hass, "media_player", "play_media", raise_exception=HomeAssistantError("unavailable")
     )
     assert await _say(hass, "StaticPlay") == "Static could not be started on that speaker."
+
+
+async def test_a_speaker_out_of_reach_is_not_asked_and_is_not_called_playing(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    played: list[ServiceCall],
+) -> None:
+    # Home Assistant drops an unavailable speaker from a call without an error,
+    # so "Playing Static News." was said to a speaker that had been unplugged.
+    entry = await _set_up(hass, aioclient_mock, schedule_text_with_links, [KITCHEN])
+    hass.states.async_set(KITCHEN, "unavailable")
+    assert await _say(hass, "StaticPlay") == "Static could not be started on that speaker."
+    with pytest.raises(HomeAssistantError, match="not available to play Static"):
+        await _tune(hass, station="News")
+    assert played == []
+    selector = hass.states.get(_selector(hass, entry, KITCHEN))
+    assert selector is not None
+    assert selector.state == "unknown"
+
+
+async def test_a_speaker_that_is_gone_points_at_the_configure_screen(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text_with_links: str,
+    played: list[ServiceCall],
+) -> None:
+    # A speaker renamed after it was chosen: its old id names nothing.
+    await _set_up(hass, aioclient_mock, schedule_text_with_links, [KITCHEN])
+    hass.states.async_remove(KITCHEN)
+    with pytest.raises(HomeAssistantError, match="Configure screen"):
+        await _tune(hass, station="News")
+    assert played == []
 
 
 async def test_whats_on_with_no_station_named_is_about_the_one_tuned(

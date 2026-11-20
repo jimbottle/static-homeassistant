@@ -76,6 +76,10 @@ async def _set_up(
     aioclient_mock.get(SCHEDULE_URL, text=text)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
+    # In Home Assistant and in reach: a speaker that is not is refused (play.py).
+    for speaker in entry.options.get(CONF_SPEAKERS, []):
+        if hass.states.get(speaker) is None:
+            hass.states.async_set(speaker, "idle")
 
 
 def _select_id(hass: HomeAssistant, entry: MockConfigEntry, speaker: str) -> str:
