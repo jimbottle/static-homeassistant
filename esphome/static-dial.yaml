@@ -11,6 +11,12 @@
 # dial: hold to tune" swaps the two. With "Static dial" off, which is how it
 # boots, every turn runs the stock firmware's own dial actions, unchanged.
 #
+# A turn that tunes lights one LED of the ring for the station the dial is on,
+# counted from where the volume display starts. The integration keeps the
+# place in "Static dial station" (1 for the first station, 0 for none); the
+# firmware knows nothing of the stations themselves. A turn that changes the
+# volume shows the volume, as it always did.
+#
 # The stock config is pulled from the tag, and its unpinned voice_kit
 # component is pinned to the commit that tag points to. Build it with the
 # ESPHome release that built 26.9.0:
@@ -34,6 +40,45 @@ external_components:
 wifi:
   ssid: !secret wifi_ssid
   password: !secret wifi_password
+
+globals:
+  # True while the last turn of the dial was one that tunes.
+  - id: static_tuning
+    type: bool
+    restore_value: no
+    initial_value: 'false'
+
+number:
+  - platform: template
+    id: static_dial_station
+    name: Static dial station
+    icon: mdi:radio-tower
+    entity_category: config
+    min_value: 0
+    max_value: 12
+    step: 1
+    optimistic: true
+    restore_value: false
+    initial_value: 0
+
+light:
+  - id: !extend voice_assistant_leds
+    effects:
+      # One LED for the station the dial is on, in the ring's own colour.
+      - addressable_lambda:
+          name: "Static Station"
+          update_interval: 50ms
+          lambda: |-
+            auto light_color = id(led_ring).current_values;
+            Color color(light_color.get_red() * 255, light_color.get_green() * 255,
+                  light_color.get_blue() * 255);
+            int station = static_cast<int>(id(static_dial_station).state);
+            for (uint8_t i = 0; i < 12; i++) {
+              it[i] = Color::BLACK;
+            }
+            if (station >= 1 && station <= 12) {
+              it[(6 + station - 1) % 12] = color;
+            }
 
 sensor:
   # Drop the stock dial actions, then send every turn through static_dial_turn.
@@ -66,6 +111,26 @@ switch:
     restore_mode: RESTORE_DEFAULT_OFF
 
 script:
+  # What the ring shows while the dial is being turned: the station after a
+  # turn that tunes, the stock volume display after any other.
+  - id: !extend control_leds_dial_touched
+    then: !remove
+  - id: !extend control_leds_dial_touched
+    then:
+      - light.turn_on:
+          brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
+          id: voice_assistant_leds
+          effect: !lambda 'return id(static_tuning) ? "Static Station" : "Volume Display";'
+  # Show the station for 3 s after the last click that tunes.
+  - id: static_dial_show
+    mode: restart
+    then:
+      - script.execute: control_leds
+      - delay: 3s
+      - lambda: |-
+          id(static_tuning) = false;
+          id(dial_touched) = false;
+      - script.execute: control_leds
   - id: static_dial_turn
     parameters:
       clockwise: bool
@@ -85,14 +150,25 @@ script:
                       id: button_press_event
                       event_type: !lambda 'return clockwise ? "dial_clockwise" : "dial_anticlockwise";'
                   - sensor.rotary_encoder.set_value: {id: dial, value: 0}
+                  - script.stop: control_volume
+                  - lambda: |-
+                      id(static_tuning) = true;
+                      id(dial_touched) = true;
+                  - script.execute: static_dial_show
                 else:
-                  - lambda: id(dial_touched) = true;
+                  - script.stop: static_dial_show
+                  - lambda: |-
+                      id(static_tuning) = false;
+                      id(dial_touched) = true;
                   - script.execute:
                       id: control_volume
                       increase_volume: !lambda return clockwise;
           else:
             # The stock 26.9.0 dial actions, with the direction as a parameter.
-            - lambda: id(dial_touched) = true;
+            - script.stop: static_dial_show
+            - lambda: |-
+                id(static_tuning) = false;
+                id(dial_touched) = true;
             - if:
                 condition:
                   and:

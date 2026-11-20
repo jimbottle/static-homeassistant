@@ -3,7 +3,7 @@
 `esphome/static-dial.yaml` changes the stock Voice PE firmware as little as it
 can, so that it stays a small file on top of a 1,900-line one. These tests
 hold it to that: it is pinned to the stock release, it reaches into the stock
-config by two ids only, it boots with stock behaviour, and it keeps Wi-Fi
+config by four ids only, it boots with stock behaviour, and it keeps Wi-Fi
 details out of the repo. The full compile is run by hand with ESPHome (see the
 file's opening comment); it needs the network and minutes, so it is not here.
 """
@@ -71,7 +71,7 @@ def _walk(node: Any) -> list[Any]:
 def _ids(config: dict[str, Any]) -> list[Any]:
     return [
         item["id"]
-        for key in ("sensor", "event", "switch", "script")
+        for key in ("globals", "number", "light", "sensor", "event", "switch", "script")
         for item in config.get(key, [])
     ]
 
@@ -100,14 +100,19 @@ def test_build_command_names_the_release_that_built_the_stock_image() -> None:
     assert "esphome==2026.6.0 compile" in OVERLAY.read_text(encoding="utf-8")
 
 
-def test_reaches_into_stock_by_two_ids_only() -> None:
+def test_reaches_into_stock_by_four_ids_only() -> None:
     config = _load()
     touched = {
         item_id.value
         for item_id in _ids(config)
         if isinstance(item_id, Tagged) and item_id.tag == "!extend"
     }
-    assert touched == {"dial", "button_press_event"}
+    assert touched == {
+        "dial",
+        "button_press_event",
+        "voice_assistant_leds",  # one more effect for the ring
+        "control_leds_dial_touched",  # which effect a turn shows
+    }
     removed_items = [
         item_id
         for item_id in _ids(config)
@@ -128,7 +133,14 @@ def test_replaces_only_the_dial_actions() -> None:
 
 def test_new_ids_are_static_ones() -> None:
     new = {item_id for item_id in _ids(_load()) if isinstance(item_id, str)}
-    assert new == {"static_dial", "static_dial_hold_to_tune", "static_dial_turn"}
+    assert new == {
+        "static_dial",
+        "static_dial_hold_to_tune",
+        "static_dial_turn",
+        "static_dial_show",
+        "static_dial_station",
+        "static_tuning",
+    }
 
 
 def test_adds_the_two_dial_event_types_and_fires_only_those() -> None:
@@ -157,7 +169,7 @@ def test_boots_with_stock_behaviour() -> None:
 
 
 def test_switch_off_runs_the_three_stock_dial_scripts() -> None:
-    (script,) = _load()["script"]
+    script = next(s for s in _load()["script"] if s["id"] == "static_dial_turn")
     (step,) = script["then"]
     stock_branch = step["if"]["else"]
     called = {
@@ -178,3 +190,21 @@ def test_wifi_comes_from_an_uncommitted_secrets_file() -> None:
         (REPO / "esphome" / "secrets.example.yaml").read_text(encoding="utf-8")
     )
     assert set(example) == {"wifi_ssid", "wifi_password"}
+
+
+def test_a_turn_that_tunes_shows_the_station_and_any_other_shows_the_volume() -> None:
+    config = _load()
+    (ring,) = config["light"]
+    assert [effect["addressable_lambda"]["name"] for effect in ring["effects"]] == [
+        "Static Station"
+    ]
+    removed, shown = (
+        s for s in config["script"] if s["id"] == Tagged("!extend", "control_leds_dial_touched")
+    )
+    assert removed["then"] == Tagged("!remove", None)
+    (step,) = shown["then"]
+    effect = step["light.turn_on"]["effect"]
+    assert isinstance(effect, Tagged) and effect.tag == "!lambda"
+    assert set(re.findall(r'"([\w ]+)"', effect.value)) == {"Static Station", "Volume Display"}
+    place = next(n for n in config["number"] if n["id"] == "static_dial_station")
+    assert (place["min_value"], place["max_value"]) == (0, 12)  # the ring has 12 LEDs

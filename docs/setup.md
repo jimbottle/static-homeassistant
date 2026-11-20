@@ -44,6 +44,19 @@ Settings → Devices & services → Static Radio (unofficial) → **Configure**.
 | 12 | Add `examples/now-playing-card.yaml` to a dashboard. | Every station is listed with its Episode link, and a Support link when the show has one. | Tests only |
 | 13 | Open Media → Static Radio in the media browser. | Each station is listed and plays on a chosen speaker. | Not recorded since 2026-11-14; try again before a release |
 
+## The full dial experience (optional custom firmware)
+
+Every step above works on a speaker left on its stock firmware, and that is
+the install this page verifies. On a Voice Preview Edition the dial is at its
+best with the overlay in `esphome/` flashed: a turn tunes with no double
+press, the ring lights one LED for the station the dial is on, and the volume
+display no longer jumps. [dial-firmware.md](dial-firmware.md) says what
+changes, what you give up, and how to go back.
+
+| # | Step | How to tell it worked | Status |
+|---|---|---|---|
+| 14 | Optional: compile and flash `esphome/static-dial.yaml` (see [dial-firmware.md](dial-firmware.md)). | The device gains "Static dial", "Static dial: hold to tune" and "Static dial station". With Static playing, a turn of the dial says the next station and one LED moves with it; with Static stopped, a turn is the volume. | Compiles; not yet flashed on a device |
+
 ## Known setup snags
 
 - Tuning by the dial starts from the station the speaker is on. On the last
