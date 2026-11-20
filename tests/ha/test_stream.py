@@ -257,6 +257,21 @@ async def test_a_wrong_key_station_or_format_is_not_found(
     assert _audio_calls(mock) == []
 
 
+async def test_a_caller_through_home_assistant_cloud_is_not_served(
+    hass: HomeAssistant, tuned: Tuned
+) -> None:
+    # Remote access through Home Assistant Cloud reaches the web server from an
+    # address on this machine, so the address alone would let it in.
+    client, entry, mock = tuned
+    path = stream_path(hass, entry, SPEAKER, STATION, say=True)
+    with patch("homeassistant.helpers.network.is_cloud_connection", return_value=True):
+        response = await client.get(path)
+        status = response.status
+        response.close()
+    assert status == 404
+    assert _audio_calls(mock) == []
+
+
 @pytest.mark.parametrize(
     ("remote", "home"),
     [
