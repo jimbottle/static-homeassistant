@@ -387,6 +387,32 @@ async def test_names_heard_out_one_by_one_load_only_the_station_stopped_on(
     assert _stations(played)[1:] == ["weird_01.flac?quiet=1"]
 
 
+async def test_a_click_against_an_end_of_the_dial_says_that_station_again(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    put_back: list[float],
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text, voice=True)
+    said = async_mock_service(hass, "assist_satellite", "announce")
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Sleep"}, blocking=True
+    )
+    await _press(hass, freezer, "double_press")
+
+    # Sleep is the last station: two clicks on from it, heard out one by one.
+    for _ in range(2):
+        await _turn(hass, 0.30)
+        await _rest(hass, freezer, SAY_REST_S)
+        await _rest(hass, freezer, 1.0)
+    assert [call.data["message"] for call in said] == ["Sleep", "Sleep"]
+
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert len(played) == 1  # it is on Sleep already: nothing is loaded again
+
+
 async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
@@ -408,7 +434,7 @@ async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
     await _rest(hass, freezer, ARMED_S + 1)
     await _turn(hass, 0.02)
     await _press(hass, freezer, "double_press")
-    await _turn(hass, 0.0)
+    await _turn(hass, 7.450581e-09)  # how the reference speaker reports 0
     await _rest(hass, freezer, REST_S)
     assert put_back[-1] == 0.02
     assert _volume(hass) == 0.02

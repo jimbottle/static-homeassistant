@@ -20,7 +20,9 @@ press" event. This file turns those two facts into a tuning dial:
 - A device with no announcements of its own cannot say the name early. Its
   station is loaded after REST_S, and the stream opens with the name.
 - Static's dial has two ends and does not wrap, so a long turn stops at the
-  first or the last station.
+  first or the last station. A click against an end says that station's name
+  again: with nothing said, a listener turning the wrong way at the last
+  station took the dial for broken (seen on the reference speaker).
 
 Measured on the reference speaker (firmware 26.9.0): one slow click is one
 update of 0.05, and fast clicks arrive as one update of several steps, so
@@ -199,7 +201,8 @@ class Dial:
                 return
         clicks = clicks_in(change)
         by_someone = new.context.user_id is not None or new.context.parent_id is not None
-        if not by_someone and not clicks and now in (0.0, 1.0):
+        at_an_end = now <= STEP_SLACK or now >= 1 - STEP_SLACK  # the device reports 7e-9 for 0
+        if not by_someone and not clicks and at_an_end:
             clicks = 1 if change > 0 else -1  # a click cut short by the end of the range
         if by_someone or not clicks:
             if by_someone or abs(change) >= DRIFT:
@@ -261,6 +264,8 @@ class Dial:
             on, clicks = (current, clicks) if current is not None else (stations[0], 0)
         index = next((i for i, st in enumerate(stations) if st.station_id == on.station_id), 0)
         self._target = stations[max(0, min(len(stations) - 1, index + clicks))]
+        if clicks and self._target.station_id == on.station_id:
+            self._said = None  # against an end of the dial: say where it is again
         self._cancel_rests()
         if self._announcer is None:
             self._tune_rest = async_call_later(self._hass, REST_S, self._rested)
