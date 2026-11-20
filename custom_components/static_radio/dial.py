@@ -78,9 +78,9 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import async_call_later, async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
-from .const import CONF_DIALS, CONF_SPEAKERS
+from .const import CONF_DIALS, CONF_SPEAKERS, DOMAIN
 from .schedule import Station
-from .tune import TuneError, async_tune, loaded_entry, selector_for, tuned_station
+from .tune import TuneError, async_tune, loaded_entry, selector_unique_id, tuned_station
 
 if TYPE_CHECKING:
     from . import StaticConfigEntry
@@ -161,8 +161,16 @@ def _number(text: str) -> int | None:
 class Dial:
     """One speaker's dial: armed by its button, read from its volume."""
 
-    def __init__(self, hass: HomeAssistant, speaker: str, button: str) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: StaticConfigEntry,
+        speaker: str,
+        button: str,
+        selector: str | None,
+    ) -> None:
         self._hass = hass
+        self._entry = entry
         self._speaker = speaker
         self._button = button
         self._volume_player = volume_player_for(hass, button, speaker)
@@ -182,10 +190,6 @@ class Dial:
             async_track_state_change_event(hass, list({button, self._volume_player}), self._changed)
         ]
         if self._switch is not None or self._place is not None:
-            try:
-                selector = selector_for(hass, speaker).entity_id
-            except TuneError:
-                selector = None
             watched = [e for e in (selector, self._switch, self._place) if e is not None]
             self._selector = selector
             self._unwatch.append(
@@ -319,7 +323,8 @@ class Dial:
         self._ask(self._switch, "switch", "turn_on" if playing else "turn_off", {}, playing)
         if time.monotonic() >= self._clicked_until:
             try:
-                stations = loaded_entry(self._hass).runtime_data.data.stations
+                # Not loaded_entry: this also runs while the integration is still loading.
+                stations = self._entry.runtime_data.data.stations
                 current = tuned_station(self._hass, self._speaker)
             except TuneError:
                 return
@@ -448,4 +453,8 @@ def async_setup_dials(hass: HomeAssistant, entry: StaticConfigEntry) -> None:
     for speaker in speakers:
         button = buttons.get(speaker)
         if button:
-            entry.async_on_unload(Dial(hass, speaker, button).stop)
+            # Found by its unique id: the selector itself may not have loaded yet.
+            selector = er.async_get(hass).async_get_entity_id(
+                "select", DOMAIN, selector_unique_id(entry.entry_id, speaker)
+            )
+            entry.async_on_unload(Dial(hass, entry, speaker, button, selector).stop)

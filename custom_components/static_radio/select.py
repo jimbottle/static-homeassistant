@@ -30,7 +30,7 @@ from .device import service_device
 from .play import async_play
 from .resume import OnAir
 from .schedule import Station
-from .tune import SELECTORS_KEY
+from .tune import SELECTORS_KEY, selector_unique_id
 from .tuner import find_station
 
 
@@ -53,7 +53,7 @@ async def async_setup_entry(
 
 
 def _unique_id(entry: StaticConfigEntry, speaker: str) -> str:
-    return f"{entry.entry_id}_{speaker}_station"
+    return selector_unique_id(entry.entry_id, speaker)
 
 
 def _speaker_name(hass: HomeAssistant, entity_id: str) -> str:
