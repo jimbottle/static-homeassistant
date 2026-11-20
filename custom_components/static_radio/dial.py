@@ -19,10 +19,9 @@ press" event. This file turns those two facts into a tuning dial:
   to be longer than that.
 - A device with no announcements of its own cannot say the name early. Its
   station is loaded after REST_S, and the stream opens with the name.
-- Static's dial has two ends and does not wrap, so a long turn stops at the
-  first or the last station. A click against an end says that station's name
-  again: with nothing said, a listener turning the wrong way at the last
-  station took the dial for broken (seen on the reference speaker).
+- Static's dial is a circle, so a turn on from the last station comes round
+  to the first, and a turn back from the first to the last. A turn that
+  comes all the way round to where it began says that station's name again.
 
 Measured on the reference speaker (firmware 26.9.0): one slow click is one
 update of 0.05, and fast clicks arrive as one update of several steps, so
@@ -362,7 +361,7 @@ class Dial:
     # -- where the dial is ----------------------------------------------------
 
     def _turn(self, clicks: int) -> None:
-        """Move the dial `clicks` stations along, stopping at its ends."""
+        """Move the dial `clicks` stations along, round the circle."""
         try:
             stations = loaded_entry(self._hass).runtime_data.data.stations
             current = tuned_station(self._hass, self._speaker)
@@ -379,9 +378,9 @@ class Dial:
             self._said = current.station_id if current is not None else None
             on, clicks = (current, clicks) if current is not None else (stations[0], 0)
         index = next((i for i, st in enumerate(stations) if st.station_id == on.station_id), 0)
-        self._target = stations[max(0, min(len(stations) - 1, index + clicks))]
+        self._target = stations[(index + clicks) % len(stations)]
         if clicks and self._target.station_id == on.station_id:
-            self._said = None  # against an end of the dial: say where it is again
+            self._said = None  # all the way round: say where it is again
         self._show(stations, self._target)
         self._cancel_rests()
         if self._announcer is None:

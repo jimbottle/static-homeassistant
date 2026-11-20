@@ -14,7 +14,6 @@ import pytest
 
 from custom_components.static_radio.schedule import Schedule, parse_schedule
 from custom_components.static_radio.tuner import (
-    end_of_dial_reply,
     find_station,
     step,
     tuned_reply,
@@ -55,21 +54,23 @@ def test_every_change_of_station_is_announced_with_statics_name(schedule: Schedu
     assert "Playing Static SHEILA B." in said  # as Static writes it, capitals and all
 
 
-def test_stepping_goes_along_the_dial_and_stops_at_each_end(schedule: Schedule) -> None:
+def test_stepping_goes_round_the_dial_in_both_directions(schedule: Schedule) -> None:
     stations = schedule.stations
-    walked = [stations[0].display_name]
+    walked = []
     current = stations[0]
-    while (following := step(stations, current.station_id, +1)) is not None:
-        walked.append(following.display_name)
+    for _ in stations:
+        walked.append(current.display_name)
+        following = step(stations, current.station_id, +1)
+        assert following is not None
         current = following
     assert walked == DIAL
-    assert end_of_dial_reply(current, +1) == "Static Sleep is the last station on the dial."
+    assert current is stations[0]  # on from the last station is the first
 
-    back = step(stations, current.station_id, -1)
-    assert back is not None
-    assert back.display_name == "SHEILA B"
-    assert step(stations, stations[0].station_id, -1) is None
-    assert end_of_dial_reply(stations[0], -1) == "Static Nature is the first station on the dial."
+    back = step(stations, stations[0].station_id, -1)
+    assert back is stations[-1]  # and back from the first is the last
+    assert back.display_name == "Sleep"
+    far = step(stations, stations[0].station_id, 2 * len(stations) + 1)
+    assert far is stations[1]
 
 
 def test_a_step_from_nowhere_lands_on_the_first_station(schedule: Schedule) -> None:

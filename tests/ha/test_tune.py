@@ -125,7 +125,7 @@ async def test_with_one_speaker_set_up_it_need_not_be_named(
     assert "/sleep_01.flac" in played[0].data["media_content_id"]
 
 
-async def test_steps_move_along_the_dial_and_stop_at_its_ends(
+async def test_steps_move_along_the_dial_and_round_its_ends(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     schedule_text_with_links: str,
@@ -145,13 +145,11 @@ async def test_steps_move_along_the_dial_and_stop_at_its_ends(
     assert state() == DIAL[1]
     await _tune(hass, step=-1)
     assert state() == DIAL[0]
-    with pytest.raises(ServiceValidationError, match="Static Nature is the first station"):
-        await _tune(hass, step=-1)
-    await _tune(hass, station=DIAL[-1])
-    with pytest.raises(ServiceValidationError, match="Static Sleep is the last station"):
-        await _tune(hass, step=1)
+    await _tune(hass, step=-1)  # the dial is a circle: back from the first is the last
     assert state() == DIAL[-1]
-    assert len(played) == 4
+    await _tune(hass, step=1)
+    assert state() == DIAL[0]
+    assert len(played) == 5
 
 
 async def test_with_no_station_it_comes_back_to_the_last_one(
@@ -283,11 +281,12 @@ async def test_voice_tunes_and_names_the_station_and_the_stream_does_not_repeat_
     assert await _say(hass, "StaticTune", "sheila b") == "Playing Static SHEILA B."
     assert played[-1].data["media_content_id"].endswith("/sheila_01.flac?quiet=1")
     assert await _say(hass, "StaticNext") == "Playing Static Sleep."
-    assert await _say(hass, "StaticNext") == "Static Sleep is the last station on the dial."
+    assert await _say(hass, "StaticNext") == "Playing Static Nature."
+    assert await _say(hass, "StaticPrevious") == "Playing Static Sleep."
     assert await _say(hass, "StaticPrevious") == "Playing Static SHEILA B."
     assert await _say(hass, "StaticPlay") == "Playing Static SHEILA B."
     assert (await _say(hass, "StaticTune", "Jazz")).startswith("Static's stations are Nature")
-    assert len(played) == 4
+    assert len(played) == 6
 
 
 async def test_every_spoken_reply_is_one_sentence_ending_in_a_period(

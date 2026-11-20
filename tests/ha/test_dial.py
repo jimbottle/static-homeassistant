@@ -208,7 +208,7 @@ async def test_after_a_double_press_each_click_is_a_station_and_the_volume_is_pu
     assert _volume(hass) == HOME
 
 
-async def test_a_flick_is_counted_by_its_size_and_a_long_turn_stops_at_the_end_of_the_dial(
+async def test_a_flick_is_counted_by_its_size_and_a_long_turn_goes_round_the_dial(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     schedule_text: str,
@@ -226,13 +226,9 @@ async def test_a_flick_is_counted_by_its_size_and_a_long_turn_stops_at_the_end_o
     await _rest(hass, freezer, REST_S)
     assert _stations(played)[1:] == ["weird_01.flac"]
 
-    await _turn(hass, 0.75)  # ten clicks: past the last station
+    await _turn(hass, 0.75)  # ten clicks: past Sleep, round to Nature and one on
     await _rest(hass, freezer, REST_S)
-    assert _stations(played)[2:] == ["sleep_01.flac"]
-
-    await _turn(hass, 0.30)  # already at the end: nothing to tune
-    await _rest(hass, freezer, REST_S)
-    assert len(played) == 3
+    assert _stations(played)[2:] == ["unite_01.flac"]
 
 
 async def test_the_dial_goes_back_to_volume_when_it_has_been_left_alone(
@@ -395,7 +391,7 @@ async def test_names_heard_out_one_by_one_load_only_the_station_stopped_on(
     assert _stations(played)[1:] == ["weird_01.flac?quiet=1"]
 
 
-async def test_a_click_against_an_end_of_the_dial_says_that_station_again(
+async def test_a_click_on_from_the_last_station_comes_round_to_the_first(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
     schedule_text: str,
@@ -415,10 +411,18 @@ async def test_a_click_against_an_end_of_the_dial_says_that_station_again(
         await _turn(hass, 0.30)
         await _rest(hass, freezer, SAY_REST_S)
         await _rest(hass, freezer, 1.0)
-    assert [call.data["message"] for call in said] == ["Sleep", "Sleep"]
+    assert [call.data["message"] for call in said] == ["Nature", "Work"]
 
     await _rest(hass, freezer, TUNE_REST_S)
-    assert len(played) == 1  # it is on Sleep already: nothing is loaded again
+    assert _stations(played)[1:] == ["work_01.flac?quiet=1"]
+
+    # And one click back from the first station is the last.
+    await _press(hass, freezer, "double_press")
+    for _ in range(2):
+        await _turn(hass, 0.20)
+        await _rest(hass, freezer, SAY_REST_S)
+        await _rest(hass, freezer, 1.0)
+    assert [call.data["message"] for call in said][2:] == ["Nature", "Sleep"]
 
 
 async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
@@ -446,7 +450,8 @@ async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
     await _rest(hass, freezer, REST_S)
     assert put_back[-1] == 0.02
     assert _volume(hass) == 0.02
-    assert len(played) == 1  # a click down from the first station: nothing to tune
+    # A click down from the first station comes round to the last.
+    assert _stations(played)[1:] == ["sleep_01.flac"]
 
 
 @pytest.fixture
