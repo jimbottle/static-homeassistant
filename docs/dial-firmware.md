@@ -8,11 +8,10 @@ Flashing the overlay in [`esphome/static-dial.yaml`](../esphome/static-dial.yaml
 gives the dial the full experience. This page says what changes, how to
 install it, how to go back, and what has been tried.
 
-**Status: flashed on the reference speaker, not yet checked by hand.** The
-overlay compiles in full against stock firmware 26.9.0 and the speaker came
-back in Home Assistant with its new entities (see
-[Tried so far](#tried-so-far)). How the dial and the ring behave is still
-from reading the firmware's source and from tests of the integration's side.
+**Status: checked by hand on the reference speaker, 2026-11-20.** The dial
+tuned with each station's name said and its LED lit, round the whole dial,
+and a held turn changed the volume with the volume shown (see
+[Tried so far](#tried-so-far)). The way back to stock has not been tried.
 
 ## What changes
 
@@ -92,5 +91,9 @@ The integration goes back to the double press by itself: it looks for the
 | The overlay compiles in full with ESPHome 2026.6.0 | Done 2026-11-20: 2,852,224 bytes, 35.1 % of flash, 21.6 % of RAM |
 | The integration takes the overlay's clicks, switches "Static dial" with playback and sets the station number | Tests only |
 | Flashed on a device over the network, and over USB | Done 2026-11-20. The device kept its name and its encryption key, and Home Assistant found the three new entities |
-| The dial, the ring and everything stock checked by hand | Not yet |
+| A plain turn tunes: each name said, one LED per station, the station stopped on loaded | Verified 2026-11-20 |
+| On from the last station round to the first, by the dial and by "next Static station" | Verified 2026-11-20 |
+| A held turn changes the volume and the ring shows the volume | Verified 2026-11-20 |
+| The wake word and a spoken request | Verified 2026-11-20 |
+| "Static dial: hold to tune", timers and the mute switch | Not yet |
 | Going back to stock, by USB and over the network | Not yet |

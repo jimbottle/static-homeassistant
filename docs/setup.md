@@ -27,7 +27,7 @@ Settings → Devices & services → Static Radio (unofficial) → **Configure**.
 | 5 | Choose the phone a Support link is sent to, or none. | With a show on air that has a Support link, "send me the Static support link" puts a notification on that phone. | Not yet verified. On 2026-11-19 no show with a link was on air; the "has no Support link" reply was heard |
 | 6 | Leave "Say the station's name when tuning" on, or switch it off. | Tuning from the selector opens with the station's name, spoken. Tuning by voice does not repeat it. | Verified 2026-11-19 |
 | 7 | Set each speaker's lead. Keep 1300 ms for a Voice Preview Edition through Music Assistant. | The speaker is within about a second of Static's web player on the same station. | Verified 2026-11-18: 1.07 s behind the timeline (median of 9 stations); the web player was 0.90 s behind |
-| 8 | Optional: give a speaker its "Button press" entity, to tune with its volume dial. | A double press of the button, then one click of the dial, moves one station along and says its name; the volume ends where it began. Ten seconds later the dial is volume again. | Saved and loaded: verified 2026-11-19. Browsing one click at a time, each name said and the station stopped on loaded: verified 2026-11-20. A fast turn, and a turn on from the last station round to the first: not yet verified |
+| 8 | Optional: give a speaker its "Button press" entity, to tune with its volume dial. | A double press of the button, then one click of the dial, moves one station along and says its name; the volume ends where it began. Ten seconds later the dial is volume again. | Saved and loaded: verified 2026-11-19. Browsing one click at a time, each name said and the station stopped on loaded: verified 2026-11-20. A fast turn, and a turn on from the last station round to the first: not yet verified on stock firmware (the second was verified with the custom firmware, 2026-11-20) |
 
 ## Voice
 
@@ -55,7 +55,7 @@ changes, what you give up, and how to go back.
 
 | # | Step | How to tell it worked | Status |
 |---|---|---|---|
-| 14 | Optional: compile and flash `esphome/static-dial.yaml` (see [dial-firmware.md](dial-firmware.md)). | The device gains "Static dial", "Static dial: hold to tune" and "Static dial station". With Static playing, a turn of the dial says the next station and one LED moves with it; with Static stopped, a turn is the volume. | Flashed 2026-11-20 and the three entities appeared. The dial and the ring: not yet verified |
+| 14 | Optional: compile and flash `esphome/static-dial.yaml` (see [dial-firmware.md](dial-firmware.md)). | The device gains "Static dial", "Static dial: hold to tune" and "Static dial station". With Static playing, a turn of the dial says the next station and one LED moves with it; with Static stopped, a turn is the volume. | Verified 2026-11-20: each name said and one LED moving with it, round the whole dial, and the volume by a held turn. "Static dial: hold to tune": not yet verified |
 
 ## Known setup snags
 
