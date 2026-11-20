@@ -197,6 +197,20 @@ async def test_a_redirect_into_the_house_fails_the_episode(
     assert aioclient_mock.call_count == 1
 
 
+@pytest.mark.parametrize(
+    "location",
+    ["http://[::1/one.mp3", "https://shows.example:abc/one.mp3"],
+)
+async def test_a_redirect_that_is_not_an_address_at_all_fails_the_episode(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker, location: str
+) -> None:
+    # Left as the ValueError it starts as, this ended the whole stream, and a
+    # player that reconnects asked the show's host again each time it did.
+    aioclient_mock.get(AT, status=302, headers={"Location": location})
+    with pytest.raises(EpisodeFailedError):
+        await read(hass, an_episode(), 0)
+
+
 async def test_a_redirect_loop_gives_up(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
