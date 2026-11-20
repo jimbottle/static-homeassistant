@@ -57,6 +57,7 @@ speaker this file:
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from collections.abc import Sequence
@@ -178,6 +179,7 @@ class Dial:
         self._home: float | None = None  # the volume to keep, as it was when armed
         self._putting_back = False
         self._target: Station | None = None  # the station the dial is on, while armed
+        self._tuning = asyncio.Lock()  # held while a station the dial chose is loading
         self._said: str | None = None  # the station id last said aloud
         self._saying = False
         self._say_rest: CALLBACK_TYPE | None = None
@@ -427,21 +429,29 @@ class Dial:
             )
 
     async def _tune(self, target: Station) -> None:
-        try:
-            current = tuned_station(self._hass, self._speaker)
-            if current is not None and current.station_id == target.station_id:
-                return  # back where it started, or already at that end of the dial
-            await async_tune(
-                self._hass,
-                self._speaker,
-                name=target.display_name,
-                # The name has been said already when the device says names itself.
-                say=self._announcer is None,
-            )
-        except TuneError as err:
-            _LOGGER.debug("dial: %s", err)
-        except HomeAssistantError as err:
-            _LOGGER.warning("The dial could not tune %s: %s", self._speaker, err)
+        # One load at a time. The speaker's station is only known once a load
+        # has finished, so a turn made during one waits for it: read sooner, a
+        # turn back to the station it left would look like nothing to do, and
+        # the speaker would stay on the station the dial had moved off.
+        async with self._tuning:
+            on = self._target
+            if on is not None and on.station_id != target.station_id:
+                return  # the dial has moved on, and that turn has its own load
+            try:
+                current = tuned_station(self._hass, self._speaker)
+                if current is not None and current.station_id == target.station_id:
+                    return  # back where it started
+                await async_tune(
+                    self._hass,
+                    self._speaker,
+                    name=target.display_name,
+                    # The name has been said already when the device says names itself.
+                    say=self._announcer is None,
+                )
+            except TuneError as err:
+                _LOGGER.debug("dial: %s", err)
+            except HomeAssistantError as err:
+                _LOGGER.warning("The dial could not tune %s: %s", self._speaker, err)
 
 
 @callback
