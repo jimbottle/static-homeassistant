@@ -240,6 +240,7 @@ async def test_a_new_connection_for_a_speaker_ends_the_one_before(
     "path",
     [
         "/api/static_radio/stream/not-a-key/news_01.flac",
+        "/api/static_radio/stream/%C3%A9/news_01.flac",  # not even the letters a key is made of
         "/api/static_radio/stream/{key}/no_such_station.flac",
         "/api/static_radio/stream/{key}/news_01.mp3",
     ],

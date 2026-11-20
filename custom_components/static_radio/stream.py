@@ -236,7 +236,13 @@ class StationStreamView(HomeAssistantView):
             return web.Response(status=HTTPStatus.NOT_FOUND)
         keys: dict[str, str] = entry.data.get(CONF_STREAM_KEYS, {})
         speaker = next(
-            (who for who, theirs in keys.items() if secrets.compare_digest(theirs, key)), None
+            (
+                who
+                for who, theirs in keys.items()
+                # As bytes: a caller can send any text, and text is compared only if ASCII.
+                if secrets.compare_digest(theirs.encode(), key.encode())
+            ),
+            None,
         )
         station_id = filename.removesuffix(".flac")
         coordinator = entry.runtime_data

@@ -60,7 +60,9 @@ _OK = 200
 _PARTIAL = 206
 _CHUNK_BYTES = 32 * 1024
 _MP3_NAMES = (".mp3",)
-_FAILURES = (aiohttp.ClientError, TimeoutError, FeedRefusedError, OSError)
+# ValueError: a redirect to something that is not an address at all, or a host
+# name no lookup will take. Whatever a show's host sends, it fails that episode.
+_FAILURES = (aiohttp.ClientError, TimeoutError, FeedRefusedError, OSError, ValueError)
 _TIMEOUT = aiohttp.ClientTimeout(
     total=None, sock_connect=CONNECT_TIMEOUT_S, sock_read=READ_TIMEOUT_S
 )
@@ -81,7 +83,12 @@ async def _get(
     """Ask url, following its redirects by hand, each hop checked. The caller releases it."""
     target = as_written(url)
     for _ in range(MAX_REDIRECTS + 1):
-        if target.scheme not in ("http", "https") or not target.host or target.user:
+        if (
+            target.scheme not in ("http", "https")
+            or not target.host
+            or target.user
+            or target.password
+        ):
             raise FeedRefusedError("not a plain web address")
         address = await public_address(hass, target.host)
         named = target.host if target.is_default_port() else f"{target.host}:{target.port}"
