@@ -31,6 +31,4 @@ sets ground rules. A diff cannot show them, so flag any of these:
 - A name from Static's team, or text from correspondence with Static, in a
   tracked file.
 - The word "unofficial" removed from the README title or the integration name.
-- Code that plays or converts Static's audio. (This line comes out once the
-  owner confirms Static's answer on the audio path.)
 '''
