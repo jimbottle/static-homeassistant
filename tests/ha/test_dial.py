@@ -41,6 +41,8 @@ SPEAKER = "media_player.kitchen_speaker"  # the player that is tuned
 OWN = "media_player.kitchen_puck_media_player"  # the device's own player
 BUTTON = "event.kitchen_puck_button_press"
 VOICE = "assist_satellite.kitchen_puck_assist_satellite"  # what says a name at once
+SWITCH = "switch.kitchen_puck_static_dial"  # added by the custom firmware
+PLACE = "number.kitchen_puck_static_dial_station"  # the place its LED ring shows
 HOME = 0.25  # the volume the speaker is at
 
 
@@ -81,6 +83,7 @@ async def _set_up(
     *,
     dial: bool = True,
     voice: bool = False,
+    firmware: bool = False,
 ) -> MockConfigEntry:
     aioclient_mock.get(SCHEDULE_URL, text=text)
     options = {CONF_SPEAKERS: [SPEAKER], CONF_DIALS: {SPEAKER: BUTTON} if dial else {}}
@@ -92,12 +95,16 @@ async def _set_up(
         config_entry_id=puck.entry_id, identifiers={("esphome", "puck")}
     )
     entities = er.async_get(hass)
-    for entity_id in (OWN, BUTTON, *([VOICE] if voice else [])):
+    extra = [*([VOICE] if voice else []), *([SWITCH, PLACE] if firmware else [])]
+    for entity_id in (OWN, BUTTON, *extra):
         domain, name = entity_id.split(".")
         entities.async_get_or_create(
             domain, "esphome", name, suggested_object_id=name, device_id=device.id
         )
     hass.states.async_set(OWN, "idle", {"volume_level": HOME})
+    if firmware:
+        hass.states.async_set(SWITCH, "off")
+        hass.states.async_set(PLACE, "0")
     hass.states.async_set(BUTTON, "2026-11-12T17:00:00.000+00:00", {"event_type": "triple_press"})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
@@ -439,6 +446,98 @@ async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
     assert put_back[-1] == 0.02
     assert _volume(hass) == 0.02
     assert len(played) == 1  # a click down from the first station: nothing to tune
+
+
+@pytest.fixture
+def device(hass: HomeAssistant) -> None:
+    """A flashed device's switch and number, which take what they are asked for."""
+
+    async def turn(call: ServiceCall) -> None:
+        hass.states.async_set(SWITCH, "on" if call.service == "turn_on" else "off")
+
+    async def set_value(call: ServiceCall) -> None:
+        hass.states.async_set(PLACE, str(float(call.data["value"])))
+
+    hass.services.async_register("switch", "turn_on", turn)
+    hass.services.async_register("switch", "turn_off", turn)
+    hass.services.async_register("number", "set_value", set_value)
+
+
+def _state(hass: HomeAssistant, entity_id: str) -> str:
+    state = hass.states.get(entity_id)
+    assert state is not None
+    return state.state
+
+
+async def _plays(hass: HomeAssistant, state: str, title: str | None) -> None:
+    hass.states.async_set(SPEAKER, state, {"media_title": title} if title else {})
+    await hass.async_block_till_done(wait_background_tasks=True)
+
+
+async def test_custom_firmware_clicks_tune_with_no_double_press_and_no_volume_change(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    put_back: list[float],
+    device: None,
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text, voice=True, firmware=True)
+    said = async_mock_service(hass, "assist_satellite", "announce")
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Work"}, blocking=True
+    )
+
+    for _ in range(2):
+        await _press(hass, freezer, "dial_clockwise")
+        await _rest(hass, freezer, SAY_REST_S)
+    await _press(hass, freezer, "dial_anticlockwise")
+    await _rest(hass, freezer, SAY_REST_S)
+    assert [call.data["message"] for call in said] == ["Learn", "News", "Learn"]
+    assert _state(hass, PLACE) == "3.0"  # Learn is the third station on the dial
+
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert _stations(played)[1:] == ["learn_01.flac?quiet=1"]
+    assert put_back == []  # the firmware never moved the volume
+
+    # A double press arms nothing on this firmware: a volume step stays a volume step.
+    await _press(hass, freezer, "double_press")
+    await _turn(hass, 0.30)
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert put_back == []
+    assert len(played) == 2
+
+
+async def test_custom_firmware_tunes_by_its_dial_only_while_static_plays(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    device: None,
+) -> None:
+    await _plays(hass, "idle", None)
+    await _set_up(hass, aioclient_mock, schedule_text, firmware=True)
+    assert _state(hass, SWITCH) == "off"
+
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "News"}, blocking=True
+    )
+    await _plays(hass, "playing", "Static News")
+    assert _state(hass, SWITCH) == "on"
+    assert _state(hass, PLACE) == "4.0"  # where the ring's LED is lit on the next turn
+
+    # The device restarts and comes back with its switch off, as it boots.
+    hass.states.async_set(SWITCH, "unavailable")
+    await hass.async_block_till_done()
+    hass.states.async_set(SWITCH, "off")
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert _state(hass, SWITCH) == "on"
+
+    await _rest(hass, freezer, 60)  # past the time a station is given to start
+    await _plays(hass, "playing", "Jazz FM")
+    assert _state(hass, SWITCH) == "off"  # the dial is the volume dial for everything else
 
 
 async def test_a_speaker_given_no_button_keeps_its_volume_dial(

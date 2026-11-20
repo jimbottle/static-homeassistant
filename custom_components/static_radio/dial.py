@@ -43,14 +43,24 @@ keeping 0 left the reference speaker muted.
 The volume is put back through the speaker chosen on the Configure screen and
 not through the device's own player, which a home may keep hands off.
 
-The custom firmware overlay in esphome/ reports real dial clicks and needs
-none of this; this file is for a speaker left on stock firmware.
+A speaker flashed with the custom firmware overlay in esphome/ needs none of
+the above. Its "Button press" entity reports each click as a dial_clockwise
+or dial_anticlockwise event, and the volume is never touched. For such a
+speaker this file:
+
+- takes each of those events as one click, with no double press first;
+- turns the device's "Static dial" switch on while Static plays on the
+  speaker and off when it stops, so that the dial is the volume dial for
+  everything else;
+- keeps the device's "Static dial station" number at the dial's place, which
+  the firmware shows as one lit LED of its ring while the dial is turned.
 """
 
 from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Sequence
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
@@ -70,7 +80,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import CONF_DIALS, CONF_SPEAKERS
 from .schedule import Station
-from .tune import TuneError, async_tune, loaded_entry, tuned_station
+from .tune import TuneError, async_tune, loaded_entry, selector_for, tuned_station
 
 if TYPE_CHECKING:
     from . import StaticConfigEntry
@@ -86,6 +96,10 @@ STEP = 0.05  # the volume change of one click, of a full range of 1
 STEP_SLACK = 0.006  # a player that keeps whole percents rounds a step by up to this
 DRIFT = 0.02  # a change smaller than this that is not a step is the device, not a person
 ARM_PRESS = "double_press"  # the button event that arms the dial
+# The custom firmware's events for one click of the dial, and which way it went.
+FIRMWARE_CLICKS = {"dial_clockwise": 1, "dial_anticlockwise": -1}
+FIRMWARE_SWITCH = "static_dial"  # the end of the unique id of the firmware's switch
+FIRMWARE_PLACE = "static_dial_station"  # and of the number its LED ring shows
 
 _GONE = (STATE_UNAVAILABLE, STATE_UNKNOWN)
 
@@ -109,6 +123,16 @@ def _on_device(hass: HomeAssistant, button: str, domain: str) -> list[str]:
     )
 
 
+def _firmware_entity(hass: HomeAssistant, button: str, domain: str, key: str) -> str | None:
+    """An entity the custom firmware adds to the button's device, if it runs there."""
+    entities = er.async_get(hass)
+    for entity_id in _on_device(hass, button, domain):
+        known = entities.async_get(entity_id)
+        if known is not None and known.unique_id.endswith(key):
+            return entity_id
+    return None
+
+
 def volume_player_for(hass: HomeAssistant, button: str, speaker: str) -> str:
     """The media player whose volume the dial moves: the one on the button's own device.
 
@@ -125,6 +149,13 @@ def announcer_for(hass: HomeAssistant, button: str) -> str | None:
     """What says a name on the button's device at once: its voice satellite, if it has one."""
     own = _on_device(hass, button, "assist_satellite")
     return own[0] if own else None
+
+
+def _number(text: str) -> int | None:
+    try:
+        return round(float(text))
+    except ValueError:
+        return None
 
 
 class Dial:
@@ -144,13 +175,28 @@ class Dial:
         self._saying = False
         self._say_rest: CALLBACK_TYPE | None = None
         self._tune_rest: CALLBACK_TYPE | None = None
-        self._unwatch = async_track_state_change_event(
-            hass, list({button, self._volume_player}), self._changed
-        )
+        self._clicked_until = 0.0  # custom firmware: the dial keeps its place until then
+        self._switch = _firmware_entity(hass, button, "switch", FIRMWARE_SWITCH)
+        self._place = _firmware_entity(hass, button, "number", FIRMWARE_PLACE)
+        self._unwatch = [
+            async_track_state_change_event(hass, list({button, self._volume_player}), self._changed)
+        ]
+        if self._switch is not None or self._place is not None:
+            try:
+                selector = selector_for(hass, speaker).entity_id
+            except TuneError:
+                selector = None
+            watched = [e for e in (selector, self._switch, self._place) if e is not None]
+            self._selector = selector
+            self._unwatch.append(
+                async_track_state_change_event(hass, watched, self._firmware_changed)
+            )
+            self._follow()
 
     def stop(self) -> None:
         """Stop watching, for good."""
-        self._unwatch()
+        for unwatch in self._unwatch:
+            unwatch()
         self._cancel_rests()
 
     def _cancel_rests(self) -> None:
@@ -170,15 +216,17 @@ class Dial:
             return
         if event.data["entity_id"] == self._button:
             if (old is None or new.state != old.state) and self._pressed_just_now(new):
-                self._arm()
+                kind = new.attributes.get("event_type")
+                if kind in FIRMWARE_CLICKS:
+                    self._clicked(FIRMWARE_CLICKS[kind])
+                elif kind == ARM_PRESS and self._switch is None:
+                    self._arm()  # custom firmware needs no arming: its turns are clicks
         elif old is not None and self.armed and self._home is not None:
             self._volume_changed(old, new)
 
     @staticmethod
     def _pressed_just_now(press: State) -> bool:
-        """A double press made now, and not the last one remembered across a restart."""
-        if press.attributes.get("event_type") != ARM_PRESS:
-            return False
+        """A press or click made now, and not the last one remembered across a restart."""
         try:
             at = datetime.fromisoformat(press.state)
         except ValueError:
@@ -243,6 +291,69 @@ class Dial:
             self._putting_back = False
             _LOGGER.warning("Could not put the volume of %s back: %s", self._speaker, err)
 
+    # -- a speaker on the custom firmware ------------------------------------
+
+    def _clicked(self, clicks: int) -> None:
+        """One click reported by the custom firmware. The volume was not touched."""
+        now = time.monotonic()
+        if now >= self._clicked_until:
+            self._target = None  # the dial starts from the station the speaker is on
+        self._clicked_until = now + ARMED_S
+        self._turn(clicks)
+
+    @callback
+    def _firmware_changed(self, event: Event[EventStateChangedData]) -> None:
+        old, new = event.data["old_state"], event.data["new_state"]
+        if new is None or new.state in _GONE:
+            return
+        if event.data["entity_id"] != self._selector and not (old is None or old.state in _GONE):
+            return  # a switch somebody set by hand is left as they set it
+        self._follow()
+
+    def _follow(self) -> None:
+        """Have the device tune by its dial while Static plays, and show the right place."""
+        selector = self._hass.states.get(self._selector) if self._selector else None
+        if selector is None:
+            return
+        playing = bool(selector.attributes.get("playing_static"))
+        self._ask(self._switch, "switch", "turn_on" if playing else "turn_off", {}, playing)
+        if time.monotonic() >= self._clicked_until:
+            try:
+                stations = loaded_entry(self._hass).runtime_data.data.stations
+                current = tuned_station(self._hass, self._speaker)
+            except TuneError:
+                return
+            self._show(stations, current)
+
+    def _show(self, stations: Sequence[Station], station: Station | None) -> None:
+        """Tell the device where the dial is: 1 for the first station, 0 for nowhere."""
+        place = 0
+        if station is not None:
+            ids = [st.station_id for st in stations]
+            place = ids.index(station.station_id) + 1 if station.station_id in ids else 0
+        self._ask(self._place, "number", "set_value", {"value": place}, place)
+
+    def _ask(
+        self, entity_id: str | None, domain: str, action: str, data: dict[str, object], want: object
+    ) -> None:
+        """Ask the device for a state it is not already in. Nothing is asked of one that is away."""
+        state = self._hass.states.get(entity_id) if entity_id is not None else None
+        if state is None or state.state in _GONE:
+            return
+        now: object = state.state == "on" if domain == "switch" else _number(state.state)
+        if now == want:
+            return
+        self._hass.async_create_task(
+            self._call(domain, action, {ATTR_ENTITY_ID: entity_id, **data}),
+            f"static_radio dial {action} {self._speaker}",
+        )
+
+    async def _call(self, domain: str, action: str, data: dict[str, object]) -> None:
+        try:
+            await self._hass.services.async_call(domain, action, data, blocking=True)
+        except HomeAssistantError as err:
+            _LOGGER.warning("The dial of %s could not %s: %s", self._speaker, action, err)
+
     # -- where the dial is ----------------------------------------------------
 
     def _turn(self, clicks: int) -> None:
@@ -266,6 +377,7 @@ class Dial:
         self._target = stations[max(0, min(len(stations) - 1, index + clicks))]
         if clicks and self._target.station_id == on.station_id:
             self._said = None  # against an end of the dial: say where it is again
+        self._show(stations, self._target)
         self._cancel_rests()
         if self._announcer is None:
             self._tune_rest = async_call_later(self._hass, REST_S, self._rested)

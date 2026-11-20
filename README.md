@@ -24,7 +24,11 @@ Installed by hand as a development copy, the integration:
   has one) and a double press of its button makes each click of the dial one station along
   Static's dial for the next 8 seconds. The speaker says each station's name as the dial
   reaches it and loads the one you stop on. The volume is put back after each click, so
-  expect a brief flicker of it. Left alone, the dial is the volume dial again;
+  expect a brief flicker of it. Left alone, the dial is the volume dial again.
+  Optional custom firmware for the Voice Preview Edition makes this the full
+  experience: no double press, and an LED on the ring for the station the dial
+  is on (see [docs/dial-firmware.md](docs/dial-firmware.md); built, not yet run
+  on a device);
 - says the station's name at the start of the stream, in your assistant's own voice, while
   the episode is fetched. This can be switched off, and is left out when you tune by voice
   because the assistant has just said it;
