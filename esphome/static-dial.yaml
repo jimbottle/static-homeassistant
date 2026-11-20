@@ -15,7 +15,9 @@
 # counted from where the volume display starts. The integration keeps the
 # place in "Static dial station" (1 for the first station, 0 for none); the
 # firmware knows nothing of the stations themselves. A turn that changes the
-# volume shows the volume, as it always did.
+# volume shows the volume, as it always did, and so does one with the button
+# held while "Static dial" is on (the stock ring lights whole under a held
+# button).
 #
 # The stock config is pulled from the tag, and its unpinned voice_kit
 # component is pinned to the commit that tag points to. Build it with the
@@ -121,6 +123,24 @@ script:
           brightness: !lambda return max( id(led_ring).current_values.get_brightness() , 0.2f );
           id: voice_assistant_leds
           effect: !lambda 'return id(static_tuning) ? "Static Station" : "Volume Display";'
+  # With the button held the stock ring lights whole, which hides what a held
+  # turn did. While "Static dial" is on, a held turn shows what a plain one
+  # would: the volume, or the station with hold to tune.
+  - id: !extend control_leds_center_button_touched
+    then: !remove
+  - id: !extend control_leds_center_button_touched
+    then:
+      - if:
+          condition:
+            lambda: return id(dial_touched) && id(static_dial).state;
+          then:
+            - script.execute: control_leds_dial_touched
+          else:
+            # The stock 26.9.0 action.
+            - light.turn_on:
+                brightness: !lambda return min ( max( id(led_ring).current_values.get_brightness() , 0.2f ) + 0.1f , 1.0f );
+                id: voice_assistant_leds
+                effect: "Center Button Touched"
   # Show the station for 3 s after the last click that tunes.
   - id: static_dial_show
     mode: restart
