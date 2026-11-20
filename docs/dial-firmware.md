@@ -8,10 +8,11 @@ Flashing the overlay in [`esphome/static-dial.yaml`](../esphome/static-dial.yaml
 gives the dial the full experience. This page says what changes, how to
 install it, how to go back, and what has been tried.
 
-**Status: built, not yet run on a device.** The overlay compiles in full
-against stock firmware 26.9.0 (see [Tried so far](#tried-so-far)). It has not
-been flashed, so everything below about how it behaves comes from reading the
-firmware's source and from tests of the integration's side.
+**Status: flashed on the reference speaker, not yet checked by hand.** The
+overlay compiles in full against stock firmware 26.9.0 and the speaker came
+back in Home Assistant with its new entities (see
+[Tried so far](#tried-so-far)). How the dial and the ring behave is still
+from reading the firmware's source and from tests of the integration's side.
 
 ## What changes
 
@@ -54,7 +55,11 @@ group volume or the ring's colour, as it does on stock firmware.
 ## Install
 
 1. Copy `esphome/secrets.example.yaml` to `esphome/secrets.yaml` and fill in
-   your Wi-Fi. The file is ignored by git.
+   your Wi-Fi. The file is ignored by git. The device's radio is 2.4 GHz
+   only: name a network it can join. The stock firmware's remembered Wi-Fi is
+   not used, so a network it cannot join leaves the device off the network
+   until it is flashed again over USB (step 3, with the device's USB port in
+   place of its address).
 2. Compile, from the `esphome/` folder:
    `uvx esphome==2026.6.0 compile static-dial.yaml`
 3. Flash over the network, with the device on stock firmware and on Wi-Fi:
@@ -84,5 +89,6 @@ The integration goes back to the double press by itself: it looks for the
 | The overlay passes ESPHome 2026.6.0's config check | Done 2026-11-20 |
 | The overlay compiles in full with ESPHome 2026.6.0 | Done 2026-11-20: 2,852,224 bytes, 35.1 % of flash, 21.6 % of RAM |
 | The integration takes the overlay's clicks, switches "Static dial" with playback and sets the station number | Tests only |
-| Flashed on a device; the dial, the ring and everything stock checked by hand | Not yet |
+| Flashed on a device over the network, and over USB | Done 2026-11-20. The device kept its name and its encryption key, and Home Assistant found the three new entities |
+| The dial, the ring and everything stock checked by hand | Not yet |
 | Going back to stock, by USB and over the network | Not yet |

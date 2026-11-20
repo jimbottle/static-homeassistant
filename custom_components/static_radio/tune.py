@@ -105,6 +105,11 @@ def speaker_for(hass: HomeAssistant, device_id: str | None = None) -> str:
     raise TuneError(WHICH_SPEAKER)
 
 
+def selector_unique_id(entry_id: str, speaker: str) -> str:
+    """The unique id of a speaker's station selector, which finds it before it has loaded."""
+    return f"{entry_id}_{speaker}_station"
+
+
 def selector_for(hass: HomeAssistant, speaker: str) -> StationSelect:
     selectors: dict[str, StationSelect] = hass.data.get(SELECTORS_KEY, {})
     if speaker not in selectors:
