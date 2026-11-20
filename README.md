@@ -22,8 +22,9 @@ Installed by hand as a development copy, the integration:
 - optionally turns a speaker's own volume dial into a tuning dial. Give a speaker its
   "Button press" entity on the Configure screen (a Voice Preview Edition on stock firmware
   has one) and a double press of its button makes each click of the dial one station along
-  Static's dial for the next 8 seconds. The volume is put back after each click, so expect
-  a brief flicker of it. Left alone, the dial is the volume dial again;
+  Static's dial for the next 8 seconds. The speaker says each station's name as the dial
+  reaches it and loads the one you stop on. The volume is put back after each click, so
+  expect a brief flicker of it. Left alone, the dial is the volume dial again;
 - says the station's name at the start of the stream, in your assistant's own voice, while
   the episode is fetched. This can be switched off, and is left out when you tune by voice
   because the assistant has just said it;
