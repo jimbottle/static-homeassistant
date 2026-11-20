@@ -197,8 +197,18 @@ class _Sent:
         return self.ms - (self._now_ms() - self.connected_ms)
 
 
+# The kinds of file an episode can be, by ffmpeg's names for them. Anything
+# else is refused before ffmpeg reads past its first bytes. A playlist (HLS,
+# DASH, concat) is the one that matters: it is a list of other addresses, and
+# ffmpeg would fetch them itself, unchecked, wherever they pointed.
+AUDIO_FORMATS = "mp3,mov,aac,ogg,flac,wav,matroska"
+
+
 def _decode_command(ffmpeg: str, gain_db: float, source: Source) -> list[str]:
-    command = [ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin"]
+    command = [
+        ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin",
+        "-format_whitelist", AUDIO_FORMATS,
+    ]  # fmt: skip
     if source.url is None:
         command += ["-i", "pipe:0"]
     else:

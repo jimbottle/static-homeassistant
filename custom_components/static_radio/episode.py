@@ -65,8 +65,9 @@ _TIMEOUT = aiohttp.ClientTimeout(
     total=None, sock_connect=CONNECT_TIMEOUT_S, sock_read=READ_TIMEOUT_S
 )
 _RELAYS_KEY = f"{DOMAIN}.episode_relays"  # key -> the audioUrl it stands for
-# What of a host's answer ffmpeg needs in order to seek.
-_PASSED_ON = ("Content-Type", "Content-Range", "Content-Length", "Accept-Ranges")
+# What of a host's answer ffmpeg needs in order to seek. Not its Content-Type:
+# ffmpeg works out what a file is from the file, not from what a host calls it.
+_PASSED_ON = ("Content-Range", "Content-Length", "Accept-Ranges")
 
 
 def _total_bytes(response: aiohttp.ClientResponse) -> int | None:
