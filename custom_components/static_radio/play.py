@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from homeassistant.const import STATE_UNAVAILABLE
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import entity_registry as er
@@ -56,6 +57,16 @@ async def async_play(
     hass: HomeAssistant, entry: StaticConfigEntry, speaker: str, station: Station, *, say: bool
 ) -> None:
     """Hand the speaker the station's stream. say: may the stream open with its name."""
+    # Home Assistant leaves a speaker it cannot reach out of the call below
+    # with a line in the log and no error, which would pass for a tune.
+    state = hass.states.get(speaker)
+    if state is None:
+        raise HomeAssistantError(
+            f"{speaker} is not in Home Assistant: choose the speakers again on "
+            "Static Radio's Configure screen"
+        )
+    if state.state == STATE_UNAVAILABLE:
+        raise HomeAssistantError(f"{state.name} is not available to play Static")
     url = stream_url(hass, entry, speaker, station, say=say)
 
     platform = _platform(hass, speaker)

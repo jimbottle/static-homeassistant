@@ -111,6 +111,9 @@ async def _set_up(
     hass.states.async_set(BUTTON, "2026-11-12T17:00:00.000+00:00", {"event_type": "triple_press"})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done(wait_background_tasks=True)
+    # In Home Assistant and in reach: a speaker that is not is refused (play.py).
+    if hass.states.get(SPEAKER) is None:
+        hass.states.async_set(SPEAKER, "idle")
     return entry
 
 
