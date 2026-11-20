@@ -61,8 +61,11 @@ followed by the episode about two seconds later.
 
 ## 4. Static
 
-- [ ] Owner: the courtesy note describing the design, and the question about
-      the Support link, sent to Static.
+- [x] Owner's decision, 2026-11-20: the audio path and the Support link as
+      built meet Static's published rules, and need no approval. Each listen
+      is a normal download from the show's own host, and a speaker with no
+      screen shows the Support link everywhere it can.
+- [ ] Owner: the courtesy note telling Static how it works, sent.
 - [ ] Owner: anything Static asks for in reply is done, or the release waits.
 - [ ] "unofficial" is in the repo description, the README title and the
       integration's name, and Static is credited and linked. True today.
