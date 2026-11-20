@@ -360,6 +360,61 @@ async def test_a_device_that_can_speak_says_each_station_at_once_and_loads_the_o
     assert len(played) == 2
 
 
+async def test_names_heard_out_one_by_one_load_only_the_station_stopped_on(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    put_back: list[float],
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text, voice=True)
+    said = async_mock_service(hass, "assist_satellite", "announce")
+    await hass.services.async_call(
+        DOMAIN, "tune", {"entity_id": SPEAKER, "station": "Nature"}, blocking=True
+    )
+    await _press(hass, freezer, "double_press")
+
+    # A click every 1.4 s: the pace of someone hearing each name out, measured.
+    for _ in range(4):
+        await _turn(hass, 0.30)
+        await _rest(hass, freezer, SAY_REST_S)
+        await _rest(hass, freezer, 1.4 - SAY_REST_S)
+    assert [call.data["message"] for call in said] == ["Work", "Learn", "News", "Weird"]
+    assert len(played) == 1
+
+    await _rest(hass, freezer, TUNE_REST_S)
+    assert _stations(played)[1:] == ["weird_01.flac?quiet=1"]
+
+
+async def test_the_volume_kept_does_not_follow_drift_or_the_end_of_the_range(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    schedule_text: str,
+    freezer: FrozenDateTimeFactory,
+    played: list[ServiceCall],
+    put_back: list[float],
+) -> None:
+    await _set_up(hass, aioclient_mock, schedule_text)
+    await _press(hass, freezer, "double_press")
+
+    await _turn(hass, 0.26)  # the device, by itself
+    await _turn(hass, 0.31)  # a click from there
+    await _rest(hass, freezer, REST_S)
+    assert put_back == [HOME]  # back to where it was when armed, not to 0.26
+    assert len(played) == 1
+
+    # Nearly silent: a click down is cut short at 0, and 0 is not kept.
+    await _rest(hass, freezer, ARMED_S + 1)
+    await _turn(hass, 0.02)
+    await _press(hass, freezer, "double_press")
+    await _turn(hass, 0.0)
+    await _rest(hass, freezer, REST_S)
+    assert put_back[-1] == 0.02
+    assert _volume(hass) == 0.02
+    assert len(played) == 1  # a click down from the first station: nothing to tune
+
+
 async def test_a_speaker_given_no_button_keeps_its_volume_dial(
     hass: HomeAssistant,
     aioclient_mock: AiohttpClientMocker,
